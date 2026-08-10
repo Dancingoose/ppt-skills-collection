@@ -105,8 +105,9 @@ DISCOVER_JS = r"""
 """
 
 
-# 注入"force-position"覆盖 CSS（仅适用于 [data-pptx-target] 的 slide）
-# 用高优先级 !important 把目标 slide 钉到 (0,0,100vw,100vh)，beat 任何 .slide:not(.active) 之类规则
+# 注入 "force-position" 覆盖 CSS（仅适用于 [data-pptx-target] 的 slide）。
+# 目标页必须保留它被激活前的自然尺寸：HTML deck 并不都采用 16:9。激活器会
+# 先测量自然宽高，再写入这两个变量；100vw/100vh 只作为旧页面的回退值。
 FORCE_POSITION_CSS = r"""
     if (!document.getElementById('pptx-force-position')) {
         const s = document.createElement('style');
@@ -116,10 +117,10 @@ FORCE_POSITION_CSS = r"""
                 position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
+                right: auto !important;
+                bottom: auto !important;
+                width: var(--pptx-target-width, 100vw) !important;
+                height: var(--pptx-target-height, 100vh) !important;
                 margin: 0 !important;
                 transform: none !important;
                 opacity: 1 !important;
@@ -148,6 +149,8 @@ ACTIVATE_JS = r"""
         s.removeAttribute('data-pptx-target');
         s.classList.remove('is-active', 'active');
         s.style.removeProperty('display');
+        s.style.removeProperty('--pptx-target-width');
+        s.style.removeProperty('--pptx-target-height');
     }
     // 还原上一次 activate 清空过的祖先 transform
     if (window.__pptxClearedAncestors) {
@@ -158,8 +161,9 @@ ACTIVATE_JS = r"""
     }
     window.__pptxClearedAncestors = [];
 
-    // Step 2: 给目标打通用激活类 + force-position 触发标记
-    target.setAttribute('data-pptx-target', '');
+    // Step 2: 先恢复目标的自然 display，并清空会改变 fixed 定位参考系的
+    // 祖先 transform。不能先写 data-pptx-target：force-position 的 CSS 会把
+    // 4:3 / 9:16 等页面静默改写为当前浏览器视口比例。
     target.classList.add('is-active', 'active');
     target.style.setProperty('display', naturalDisplay, 'important');
 
@@ -177,9 +181,43 @@ ACTIVATE_JS = r"""
         cur = cur.parentElement;
     }
 
-    // Step 4: 强制 reflow 以便后续 BCR 读取拿到最新位置
+    // Step 4: 在 force-position 生效前记录真实画布尺寸。宽高写成 inline
+    // custom property，供 force-position 保持原比例且仍能把页面固定到原点。
     target.getBoundingClientRect();
-    return { ok: true };
+    const naturalRect = target.getBoundingClientRect();
+    if (!(naturalRect.width > 0 && naturalRect.height > 0)) {
+        return { error: 'target has no measurable natural size' };
+    }
+    target.style.setProperty('--pptx-target-width', `${naturalRect.width}px`);
+    target.style.setProperty('--pptx-target-height', `${naturalRect.height}px`);
+    target.setAttribute('data-pptx-target', '');
+    return { ok: true, width: naturalRect.width, height: naturalRect.height };
+}
+"""
+
+
+# A deck can reapply a stage transform from a resize listener after activation.
+# Keep the original snapshot from ACTIVATE_JS so the next slide can restore it.
+REASSERT_TARGET_POSITION_JS = r"""
+() => {
+    const target = document.querySelector('[data-pptx-target]');
+    if (!target) return { error: 'no active target' };
+    window.__pptxClearedAncestors = window.__pptxClearedAncestors || [];
+    const known = new Set(window.__pptxClearedAncestors.map(([el]) => el));
+    let cur = target.parentElement;
+    while (cur && cur !== document.body) {
+        const cs = getComputedStyle(cur);
+        if (cs.transform && cs.transform !== 'none') {
+            if (!known.has(cur)) {
+                window.__pptxClearedAncestors.push([cur, cur.style.transform || '']);
+                known.add(cur);
+            }
+            cur.style.setProperty('transform', 'none', 'important');
+        }
+        cur = cur.parentElement;
+    }
+    const rect = target.getBoundingClientRect();
+    return { ok: true, width: rect.width, height: rect.height };
 }
 """
 

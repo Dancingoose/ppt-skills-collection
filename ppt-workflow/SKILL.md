@@ -227,7 +227,8 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 候选主题在 Phase 2「主题方案」选项中呈现给用户确认。若 Phase 2 用户已选 1 个主题，Step 1 展示该主题的 3 个风格变体（如字号强度差异／叙事 vs 事实 mode）；若 Phase 2 用户未选（选了"你来定"），Step 1 展示 3 个不同主题的方案预览。从 theme-tokens.md 读取对应主题的完整 token。
 
 - 三版放同一个 HTML 文件里，tab 或并列展示
-- 1920×1080 canvas，正文 ≥ 24px
+- `ppt169` 使用 1920×1080 canvas，正文 ≥ 24px；非 16:9 画布按
+  `references/canvas-formats.md` 的原生尺寸和字号规则实现
 - 每版展示：封面 + 1 张典型内容页（如部门总述）
 - 每版附风格描述 + 该主题的 accent hex 色块
 
@@ -360,7 +361,7 @@ html-to-pptx 首次使用需要确认两条偏好（fonts.auto_install + audit.m
 
 ### Canvas/WebGL → PPTX 降级细节
 
-- **Three.js / Shadertoy / Matter.js / Canvas 粒子**：html-to-pptx 的 deco_snapshot 档自动截图（Playwright 截取该 slide 的渲染结果）。截图分辨率 = 1920×1080（与画布尺寸匹配），嵌入为 PNG 位图。**不是可编辑的矢量对象，截图后不可在 PowerPoint 内修改着色器参数/3D 视角/粒子行为。**
+- **Three.js / Shadertoy / Matter.js / Canvas 粒子**：html-to-pptx 的 deco_snapshot 档自动截图（Playwright 截取激活 slide 的原生画布尺寸），嵌入为 PNG 位图。**不是可编辑的矢量对象，截图后不可在 PowerPoint 内修改着色器参数/3D 视角/粒子行为。**
 - **ECharts 图表**：优先走 deco_snapshot 截图保留完整视觉（含动画终态）；如需在 PPTX 中编辑图表数据，可另附原始数据 CSV 或告知用户手动在 PowerPoint 中重建图表对象。
 - **Shadertoy 着色器截图注意事项**：着色器依赖 `requestAnimationFrame` 持续渲染；截图前需等 2-3 帧确保着色器完成初始化。若着色器有 `iTime` 时间累积效果，截图保留的是截图时刻的静态帧。
 - **用户若需要可编辑 PPTX 且含图表**：建议在 Phase 2 阶段（设计方案→辅助产出）提前确认，执行层可对数据页额外预留原生 PPT 图表数据表（CSV），交付时一并提供。

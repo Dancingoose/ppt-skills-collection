@@ -23,11 +23,11 @@ from zipfile import ZipFile
 from lxml import etree
 
 
-# 与 assemble.py 保持同一套换算（1920 px 视口 ↔ 12192000 EMU 16:9 幻灯片宽）。
+# 与 assemble.py 保持同一套换算（1 CSS px = 6350 EMU）。
 # 旧版本用 9525 = 914400/96（96 dpi 标准）让 self_check 内部坐标变成 "1280 logical"
 # 空间，再把 HTML measurement 也 scale 进同空间——能 round-trip 但读起来困惑。
-# 现在直接对齐 assemble 的 6350 EMU/px：self_check 的所有几何就是 1920×1080 px 空间。
-EMU_PER_PX = 12192000 / 1920  # = 6350
+# self_check 直接对齐 assemble 的 CSS 像素空间；实际宽高从 PPTX 的 p:sldSz 读取。
+EMU_PER_PX = 6350
 NS = {
     "p": "http://schemas.openxmlformats.org/presentationml/2006/main",
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
@@ -46,6 +46,7 @@ def _try_powerpoint_com(pptx_path: Path, out_dir: Path, only_indices: set[int] |
     except ImportError:
         return 0, "pywin32 未安装"
     try:
+        render_width, render_height = _pptx_render_size(pptx_path)
         pythoncom.CoInitialize()
         # 用户正开着 PowerPoint 时附着复用该实例；退出时只 Close 本 pres、绝不 Quit，
         # 否则会连用户自己打开的演示文稿一起关掉
@@ -67,7 +68,7 @@ def _try_powerpoint_com(pptx_path: Path, out_dir: Path, only_indices: set[int] |
                                    or i in only_indices
                                    or not out_png.exists())
                     if must_render:
-                        slide.Export(str(out_png), "PNG", 1920, 1080)
+                        slide.Export(str(out_png), "PNG", render_width, render_height)
                 return total, None
             finally:
                 pres.Close()
@@ -93,6 +94,7 @@ def _try_libreoffice(pptx_path: Path, out_dir: Path, only_indices: set[int] | No
     except ImportError:
         return 0, "pdf2image 未安装"
     try:
+        render_size = _pptx_render_size(pptx_path)
         with tempfile.TemporaryDirectory(prefix="h2p_lo_") as td:
             r = subprocess.run(
                 [soffice, "--headless", "--convert-to", "pdf",
@@ -105,7 +107,7 @@ def _try_libreoffice(pptx_path: Path, out_dir: Path, only_indices: set[int] | No
             if not pdf:
                 return 0, "LibreOffice 未产出 PDF"
             if only_indices is None:
-                pages = convert_from_path(str(pdf), size=(1920, 1080))
+                pages = convert_from_path(str(pdf), size=render_size)
                 for i, p in enumerate(pages, start=1):
                     p.save(out_dir / f"slide_{i:02d}.png")
                 return len(pages), None
@@ -117,7 +119,7 @@ def _try_libreoffice(pptx_path: Path, out_dir: Path, only_indices: set[int] | No
                 must_render = i in only_indices or not out_png.exists()
                 if not must_render:
                     continue
-                rendered = convert_from_path(str(pdf), size=(1920, 1080),
+                rendered = convert_from_path(str(pdf), size=render_size,
                                              first_page=i, last_page=i)
                 if rendered:
                     rendered[0].save(out_png)
@@ -190,8 +192,19 @@ def _presentation_size_px(zip_file: ZipFile):
     root = etree.fromstring(zip_file.read("ppt/presentation.xml"))
     size = root.find("p:sldSz", namespaces=NS)
     if size is None:
-        return (1280, 720)
-    return (_emu_to_px(size.get("cx")), _emu_to_px(size.get("cy")))
+        return (1920, 1080)
+    width = _emu_to_px(size.get("cx"))
+    height = _emu_to_px(size.get("cy"))
+    if width <= 0 or height <= 0:
+        return (1920, 1080)
+    return (width, height)
+
+
+def _pptx_render_size(pptx_path: Path):
+    """Return a PNG size matching the PPTX canvas at the assembler's px scale."""
+    with ZipFile(pptx_path) as zip_file:
+        width, height = _presentation_size_px(zip_file)
+    return (max(1, int(round(width))), max(1, int(round(height))))
 
 
 def _load_measurement_texts(measurements_path: Path, ppt_size):
@@ -199,8 +212,8 @@ def _load_measurement_texts(measurements_path: Path, ppt_size):
     by_slide = {}
     for slide_idx, slide in enumerate(data.get("slides", []), 1):
         meta = slide.get("slide", {})
-        sx = ppt_size[0] / float(meta.get("width") or 1920)
-        sy = ppt_size[1] / float(meta.get("height") or 1080)
+        sx = ppt_size[0] / float(meta.get("width") or ppt_size[0])
+        sy = ppt_size[1] / float(meta.get("height") or ppt_size[1])
         refs = []
         for rec in slide.get("records", []):
             if rec.get("kind") != "text":
@@ -241,18 +254,27 @@ def _attach_reference_rects(shapes, refs):
                 break
 
 
-FULL_SLIDE_PIC_CX = 12_000_000   # EMU；slide 16:9 默认 cx ≈ 12192000
-FULL_SLIDE_PIC_CY = 6_800_000    #         cy ≈ 6858000
-
-
 def full_slide_picture_warnings(pptx_path: Path):
-    """扫每张 slide.xml 找 cx ≥ FULL_SLIDE_PIC_CX 且 cy ≥ FULL_SLIDE_PIC_CY 的 <p:pic>。
+    """Scan each slide for a picture that covers the actual PPTX canvas.
 
-    命中即潜在 deco_snapshot 双层 bug 嫌疑（全屏 PNG + 文字另画一层）。
+    A hit is a possible deco_snapshot double-layer defect (full-page PNG plus
+    editable text drawn again). The threshold derives from p:sldSz so 4:3,
+    portrait, and custom canvases get the same protection as 16:9 decks.
     详见 [[project-html-to-pptx-deco-snapshot-bug]]。
     """
     findings = []
     with ZipFile(pptx_path) as zf:
+        presentation = etree.fromstring(zf.read("ppt/presentation.xml"))
+        size = presentation.find("p:sldSz", namespaces=NS)
+        if size is None:
+            return findings
+        try:
+            slide_cx = int(size.get("cx") or 0)
+            slide_cy = int(size.get("cy") or 0)
+        except ValueError:
+            return findings
+        if slide_cx <= 0 or slide_cy <= 0:
+            return findings
         for slide_name in _slide_xml_names(zf):
             slide_idx = _slide_num(slide_name)
             root = etree.fromstring(zf.read(slide_name))
@@ -265,7 +287,7 @@ def full_slide_picture_warnings(pptx_path: Path):
                     cy = int(ext.get("cy") or 0)
                 except ValueError:
                     continue
-                if cx >= FULL_SLIDE_PIC_CX and cy >= FULL_SLIDE_PIC_CY:
+                if cx >= slide_cx * 0.99 and cy >= slide_cy * 0.99:
                     findings.append({
                         "idx": slide_idx,
                         "cx_emu": cx,

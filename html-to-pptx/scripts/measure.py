@@ -1337,7 +1337,8 @@ def measure(html_path: Path, out_json: Path | None = None, *,
                 print("  [canvas] 2s 内未稳定（可能是持续动画），按当前帧继续")
 
         # 一次性准备：disable 动画 / 注入 force-position CSS / 跑 slide 发现
-        from adapters import PREPARE_JS, ENUMERATE_JS, ACTIVATE_JS
+        from adapters import (PREPARE_JS, ENUMERATE_JS, ACTIVATE_JS,
+                              REASSERT_TARGET_POSITION_JS)
         page.evaluate(PREPARE_JS)
         page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
 
@@ -1384,6 +1385,12 @@ def measure(html_path: Path, out_json: Path | None = None, *,
                 document.dispatchEvent(new CustomEvent('pptx:slide-activated', {
                     detail: { slideIndex, slide: target }
                 }));
+            }""", i)
+            # Resize handlers may reapply a responsive transform to an ancestor.
+            # Reassert the measured canvas before a chart reads its container box.
+            page.evaluate(REASSERT_TARGET_POSITION_JS)
+            page.evaluate(r"""() => {
+                const target = document.querySelector('[data-pptx-target]');
                 if (!window.echarts || !target) return;
                 for (const element of target.querySelectorAll('*')) {
                     try {
@@ -1391,7 +1398,7 @@ def measure(html_path: Path, out_json: Path | None = None, *,
                         if (chart) chart.resize();
                     } catch (_) { /* A non-ECharts element is expected here. */ }
                 }
-            }""", i)
+            }""")
             page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
 
             # counter 动画稳定性等待：识别 3 种常见 counter 约定（不是全部，足以覆盖绝大多数手写 JS counter）：

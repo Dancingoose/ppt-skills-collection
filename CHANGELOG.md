@@ -4,6 +4,27 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-11 - Native Non-16:9 Canvas Delivery
+
+- Fixed the converter's 16:9-only assumptions. The adapter now preserves a
+  target slide's natural dimensions; resize listeners cannot reapply a parent
+  transform before measurement. The assembler derives PowerPoint page size
+  from measured CSS pixels and fails closed when one deck mixes canvases.
+- PowerPoint and LibreOffice rendering now derive output PNG dimensions from
+  `ppt/presentation.xml`, full-slide picture detection uses the actual page
+  dimensions, and visual comparison images preserve each input's native size
+  instead of stretching both sides to 1920x1080.
+- Added regressions for an explicit 4:3 page, a responsive resize handler,
+  4:3 PPTX `sldSz`, mixed-canvas rejection, and non-stretched audit panels.
+- Reason: a full HTML-first 4:3 classroom-brief simulation initially rendered
+  as a 16:9 PPTX, while the old audit compositor concealed the specification
+  violation by stretching its comparison images.
+- Verification: the repaired simulation measured four 1440x1080 pages,
+  created a 9144000x6858000 EMU PPTX, rendered all four pages through
+  PowerPoint at 1440x1080, passed all three structured workflow layers, and
+  completed a page-by-page visual audit without clipping, overlap, blank
+  output, text loss, or remaining ratio distortion.
+
 ## 2026-08-11 - Multi-Source Inventory And Canvas Capture Isolation
 
 - Extended the material inventory CLI to accept multiple local files and

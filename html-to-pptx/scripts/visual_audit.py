@@ -222,7 +222,7 @@ likely_ok_pages:
 
 
 def build_compare_image(html_png: Path, ppt_png: Path, out_path: Path, page_idx: int):
-    """生成单页 HTML | PPT 双栏拼图。"""
+    """Build a side-by-side HTML | PPT comparison without changing either ratio."""
     from PIL import Image, ImageDraw, ImageFont
     # 跨平台 title 字体兜底：arial=Windows、DejaVuSans=Linux/PIL bundled、Helvetica=macOS。
     # 都找不到时 load_default() 是 bitmap，36pt 显示效果差但不阻塞 audit。
@@ -236,24 +236,31 @@ def build_compare_image(html_png: Path, ppt_png: Path, out_path: Path, page_idx:
     if title_font is None:
         title_font = ImageFont.load_default()
     try:
-        html_img = Image.open(html_png).convert("RGB").resize((1920, 1080))
-        ppt_img = Image.open(ppt_png).convert("RGB").resize((1920, 1080))
+        html_img = Image.open(html_png).convert("RGB")
+        ppt_img = Image.open(ppt_png).convert("RGB")
     except Exception as e:
         print(f"  [warn] compare build fail page {page_idx}: {e}")
         return None
 
     bar_h = 60
-    composite = Image.new("RGB", (1920 * 2 + 8, 1080 + bar_h), (255, 255, 255))
+    gap = 8
+    html_w, html_h = html_img.size
+    ppt_w, ppt_h = ppt_img.size
+    content_h = max(html_h, ppt_h)
+    composite = Image.new("RGB", (html_w + gap + ppt_w, content_h + bar_h), (255, 255, 255))
     d = ImageDraw.Draw(composite)
-    # 标题栏
-    d.rectangle((0, 0, 1920, bar_h), fill=(245, 245, 247))
-    d.rectangle((1928, 0, 3848, bar_h), fill=(255, 245, 235))
+    # Title bars follow the original panel widths. Resizing here would hide a
+    # wrong page ratio, which is exactly the failure this audit must expose.
+    d.rectangle((0, 0, html_w, bar_h), fill=(245, 245, 247))
+    d.rectangle((html_w + gap, 0, html_w + gap + ppt_w, bar_h), fill=(255, 245, 235))
     d.text((28, 12), f"HTML 参考  ·  slide {page_idx:02d}", fill=(20, 20, 20), font=title_font)
-    d.text((1956, 12), f"PPT 输出  ·  slide {page_idx:02d}", fill=(20, 20, 20), font=title_font)
-    # 中间分隔
-    d.rectangle((1920, 0, 1928, 1080 + bar_h), fill=(200, 200, 200))
+    d.text((html_w + gap + 28, 12), f"PPT 输出  ·  slide {page_idx:02d}",
+           fill=(20, 20, 20), font=title_font)
+    # Middle separator spans the full comparison height, including any visible
+    # whitespace created by a real canvas-size mismatch.
+    d.rectangle((html_w, 0, html_w + gap, content_h + bar_h), fill=(200, 200, 200))
     composite.paste(html_img, (0, bar_h))
-    composite.paste(ppt_img, (1928, bar_h))
+    composite.paste(ppt_img, (html_w + gap, bar_h))
     composite.save(out_path, optimize=True)
     return out_path
 

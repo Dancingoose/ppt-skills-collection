@@ -4,8 +4,9 @@ Usage:
     python assemble.py <measurement.json> <out.pptx>
 
 设计：
-- 标准 16:9 幻灯片 = 13.333" × 7.5" = 12192000 × 6858000 EMU
-- 测量视口 1920×1080 → 1 CSS px = 6350 EMU = 0.5 pt
+- 幻灯片尺寸由 measurement 中每页的真实 CSS 宽高决定；同一 deck 不允许混用尺寸
+- 16:9 的 1920×1080 页面 = 12192000 × 6858000 EMU
+- 1 CSS px = 6350 EMU = 0.5 pt
 - pptx 内部直接走低层 lxml 操作 spPr / txBody，避开 python-pptx 高层 API 的限制
 """
 import json
@@ -20,11 +21,13 @@ from pptx.dml.color import RGBColor
 from pptx.oxml.ns import qn
 from lxml import etree
 
-SLIDE_W_PX = 1920
-SLIDE_H_PX = 1080
-SLIDE_W_EMU = 12192000      # 13.333"
-SLIDE_H_EMU = 6858000       # 7.5"
-PX_TO_EMU = SLIDE_W_EMU / SLIDE_W_PX  # 6350
+DEFAULT_SLIDE_W_PX = 1920
+DEFAULT_SLIDE_H_PX = 1080
+PX_TO_EMU = 6350
+SLIDE_W_PX = DEFAULT_SLIDE_W_PX
+SLIDE_H_PX = DEFAULT_SLIDE_H_PX
+SLIDE_W_EMU = int(SLIDE_W_PX * PX_TO_EMU)
+SLIDE_H_EMU = int(SLIDE_H_PX * PX_TO_EMU)
 PX_TO_PT = 0.5
 
 from embed_fonts import (
@@ -54,6 +57,48 @@ def refresh_font_plan_caches():
 
 # import 时跑一次（FONT_PLAN 可能此时已被预填，例如 embed CLI 单独跑）
 refresh_font_plan_caches()
+
+
+def configure_slide_dimensions(slides_data):
+    """Set the deck canvas from measured CSS pixels and reject mixed canvases."""
+    if not slides_data:
+        raise ValueError("measurement contains no slides")
+
+    dimensions = []
+    for idx, slide_data in enumerate(slides_data, start=1):
+        meta = slide_data.get("slide") or {}
+        try:
+            width = float(meta["width"])
+            height = float(meta["height"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"slide {idx} has no valid measured dimensions") from exc
+        if not (width > 0 and height > 0):
+            raise ValueError(f"slide {idx} has non-positive measured dimensions: {width} x {height}")
+        dimensions.append((width, height))
+
+    width, height = dimensions[0]
+    # Browser layout may yield sub-pixel values, but pages in one PPTX must
+    # still represent one canvas. A one-pixel tolerance preserves legitimate
+    # measurement noise without accepting a different aspect ratio.
+    tolerance_px = 1.0
+    mismatches = [
+        (idx, other_w, other_h)
+        for idx, (other_w, other_h) in enumerate(dimensions, start=1)
+        if abs(other_w - width) > tolerance_px or abs(other_h - height) > tolerance_px
+    ]
+    if mismatches:
+        detail = ", ".join(f"slide {idx}={other_w:.2f}x{other_h:.2f}"
+                           for idx, other_w, other_h in mismatches)
+        raise ValueError(
+            f"mixed slide dimensions are not supported in one PPTX: "
+            f"slide 1={width:.2f}x{height:.2f}; {detail}")
+
+    global SLIDE_W_PX, SLIDE_H_PX, SLIDE_W_EMU, SLIDE_H_EMU
+    SLIDE_W_PX = width
+    SLIDE_H_PX = height
+    SLIDE_W_EMU = int(round(width * PX_TO_EMU))
+    SLIDE_H_EMU = int(round(height * PX_TO_EMU))
+    return (SLIDE_W_PX, SLIDE_H_PX, SLIDE_W_EMU, SLIDE_H_EMU)
 
 def parse_text_shadow(value: str):
     """解析 CSS text-shadow，返回 (dx_px, dy_px, blur_px, (r,g,b,a)) 或 None。
@@ -1240,6 +1285,7 @@ def assemble(measurement, out_path: Path):
     else:
         slides_data = [data]
 
+    configure_slide_dimensions(slides_data)
     prs = Presentation()
     prs.slide_width = SLIDE_W_EMU
     prs.slide_height = SLIDE_H_EMU
