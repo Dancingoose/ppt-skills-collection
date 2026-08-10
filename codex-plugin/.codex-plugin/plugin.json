@@ -1,0 +1,16 @@
+{
+  "name": "ppt-workflow-studio",
+  "version": "0.1.0",
+  "description": "Reliable evidence-led PPT workflow for Codex.",
+  "author": {"name": "Local developer"},
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PPT Workflow Studio",
+    "shortDescription": "Create evidence-led PPT decks.",
+    "longDescription": "Creates diverse HTML-first PPT decks with structured intent, layout, and delivery validation.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Create a PPT using the evidence-led workflow."
+  }
+}

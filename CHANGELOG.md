@@ -46,3 +46,15 @@ and verification so a change can be reverted with Git.
 - Verification: a two-page AI adoption simulation passed 28 execution checks,
   including layout/data compatibility, source evidence, theme lock, and effect
   presence.
+
+## 2026-08-10 - Codex Plugin Entry
+
+- Added a versioned `codex-plugin/` containing a `ppt-workflow-studio` skill
+  and a PowerShell deployment script.
+- Created and validated the personal-marketplace plugin at
+  `C:\Users\duanz\plugins\ppt-workflow-studio`.
+- Reason: the original collection used Claude-only `Skill(...)` references and
+  was not discoverable by Codex. The new entry treats the collection, task
+  manifest, and structured validator as the authoritative workflow.
+- Verification: both the versioned source plugin and deployed plugin passed
+  `validate_plugin.py`.
