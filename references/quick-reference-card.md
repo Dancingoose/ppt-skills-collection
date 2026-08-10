@@ -21,7 +21,7 @@
 ## 版式 P0 决策（→ layout-library.md L777-824：选版式决策表 + 内容类型匹配规则）
 | 内容类型 | 必须用 | 严禁用 |
 |---------|--------|--------|
-| 有真实数据 | B6/B7/B20/B21 | B3/B4/B10/B13 |
+| 有真实数据 | A3/B2/B6/B7/B18/B20/B21（按数据形状选） | B3/B4/B10/B13 |
 | 无数据纯定性 | B3/B10/B12/B13/B19 | B6/B7 |
 | 封面 | A1/B1 | — |
 | 章节/幕 | A2/B3/B10 | — |
@@ -61,7 +61,7 @@
 | G5 逐页增强 | Step6 每页后 | ppt-visual-effects 已加载、每页扫过 | 没加载=违规 |
 | G6 交付前置 | 交付层入口 | convert.py 存在 + .config.local.toml 已配置 | 缺 convert.py 先交HTML；缺 toml 弹首次配置 |
 
-> **代码化自检（替代纯记忆打勾）**：每层自检读取任务的 `workflow-state.json`，验证非空素材证据、设计护照、逐页布局与增强决策，而非匹配关键词。脚本位置为 `<collection_root>/ppt-workflow/scripts/check_workflow_state.py`；从 `templates/workflow-state.example.json` 创建任务状态文件。
+> **代码化自检（替代纯记忆打勾）**：每层自检读取任务的 `workflow-state.json`，验证非空素材证据、设计护照、逐页布局与增强决策，而非匹配关键词。每页 `layoutEvidence` 必须含 `itemCount` 与 `sourceRefs`，量化版式还须有 `numericValues`；HTML 容器同步写入 `data-item-count`。脚本位置为 `<collection_root>/ppt-workflow/scripts/check_workflow_state.py`；从 `templates/workflow-state.example.json` 创建任务状态文件。
 > ```bash
 > python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep|decision|exec|deliver \
 >   --task <task_dir>

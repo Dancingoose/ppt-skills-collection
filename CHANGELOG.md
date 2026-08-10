@@ -4,6 +4,25 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-10 - Layout-to-Material Evidence Gate
+
+- Added per-slide `layoutEvidence` validation to the structured gate and its
+  sample manifest. It records the repeated-item count, source references, and
+  numeric values where a data layout requires them; the rendered slide must
+  expose the same item count through `data-item-count`.
+- Added explicit limits for A3, B4, B5, B7, B11, B13, B18, B19, and B20 from
+  the layout library, and corrected the data-layout registry to include A3,
+  B2, and B18.
+- Reason: a simulated EV deck passed while assigning three agenda entries to
+  six-cell B4 and unsourced three-metric evidence to five-to-ten-value B7.
+- Verification: the regression suite now has nine passing tests, including
+  incompatible count, mismatched numerical evidence, and missing-evidence
+  failures. The corrected 10-page EV simulation passes preparation, decision,
+  and execution checks (162 passes before delivery-only checks). Visual
+  browser inspection could not run because the in-app browser blocks local
+  file URLs; delivery remains separately blocked by the missing Playwright
+  Chromium binary.
+
 ## 2026-08-10 - Baseline
 
 - Recorded the copied PPT skills collection before reliability work begins.

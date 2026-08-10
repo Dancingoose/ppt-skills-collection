@@ -33,8 +33,10 @@ def valid_state():
             "html": "design.html", "lockedPassport": copy.deepcopy(passport),
             "slides": [
                 {"id": 1, "layout": "B1", "contentType": "cover", "dark": True,
+                 "layoutEvidence": {"itemCount": 0, "sourceRefs": ["content-inventory.md: Slide 1"]},
                  "visualEffect": {"status": "skipped", "reason": "Text-led cover."}},
                 {"id": 2, "layout": "B6", "contentType": "data", "dark": False, "dataSources": ["Research"],
+                 "layoutEvidence": {"itemCount": 1, "sourceRefs": ["Research"], "numericValues": [1]},
                  "visualEffect": {"status": "applied", "type": "echarts", "reason": "Trend chart."}},
             ],
             "independentReview": {"result": "pass", "notes": "No layout defects."},
@@ -44,8 +46,8 @@ def valid_state():
 
 
 HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/echarts@5'></script></head><body>
-<section class='slide dark' data-slide-id='1' data-layout='B1'></section>
-<section class='slide' data-slide-id='2' data-layout='B6'></section>
+<section class='slide dark' data-slide-id='1' data-layout='B1' data-item-count='0'></section>
+<section class='slide' data-slide-id='2' data-layout='B6' data-item-count='1'></section>
 </body></html>"""
 
 
@@ -101,6 +103,35 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "exec")
         self.assertEqual(result.returncode, 2)
         self.assertIn("approved page count", result.stdout)
+
+    def test_layout_item_count_must_fit_selected_layout(self):
+        state = valid_state()
+        state["execution"]["slides"][1]["layout"] = "B7"
+        state["execution"]["slides"][1]["layoutEvidence"] = {
+            "itemCount": 3, "sourceRefs": ["Research"], "numericValues": [1, 2, 3],
+        }
+        html = HTML.replace("data-layout='B6' data-item-count='1'", "data-layout='B7' data-item-count='3'")
+        result = self.check(self.write_task(state, html), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("item count fits B7", result.stdout)
+
+    def test_data_layout_requires_matching_numeric_evidence(self):
+        state = valid_state()
+        state["execution"]["slides"][1]["layout"] = "B18"
+        state["execution"]["slides"][1]["layoutEvidence"] = {
+            "itemCount": 3, "sourceRefs": ["Research"], "numericValues": [1, 2],
+        }
+        html = HTML.replace("data-layout='B6' data-item-count='1'", "data-layout='B18' data-item-count='3'")
+        result = self.check(self.write_task(state, html), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("data count matches its numeric evidence", result.stdout)
+
+    def test_missing_layout_evidence_fails_without_crashing(self):
+        state = valid_state()
+        del state["execution"]["slides"][1]["layoutEvidence"]
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("records a layout item count", result.stdout)
 
 
 if __name__ == "__main__":

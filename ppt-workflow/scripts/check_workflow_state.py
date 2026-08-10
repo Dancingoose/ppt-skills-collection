@@ -7,8 +7,24 @@ import re
 import sys
 from pathlib import Path
 
-DATA_LAYOUTS = {"B6", "B7", "B20", "B21"}
+DATA_LAYOUTS = {"A3", "B2", "B6", "B7", "B18", "B20", "B21"}
 LAYOUT_RE = re.compile(r"^[ABC](?:[1-9]|1[0-9]|2[0-2])$")
+
+# These constraints come from references/layout-library.md.  The manifest and
+# the rendered slide must both declare the repeated-item count, so a layout
+# label cannot silently mask an incompatible amount of material.
+LAYOUT_ITEM_LIMITS = {
+    "A3": (4, 6),
+    "B4": (6, 6),
+    "B5": (3, 3),
+    "B7": (5, 10),
+    "B9": (3, 3),
+    "B11": (4, 7),
+    "B13": (3, 3),
+    "B18": (3, 3),
+    "B19": (4, 4),
+    "B20": (4, 6),
+}
 
 
 class Validator:
@@ -106,11 +122,29 @@ def check_execution(state, task_dir, v):
             for tag in tags
         )
         v.require(matching_tag, f"slide {slide_id} layout is embedded in its HTML container")
+        evidence = item.get("layoutEvidence", {})
+        item_count = evidence.get("itemCount")
+        v.require(isinstance(item_count, int) and item_count >= 0, f"slide {slide_id} records a layout item count")
+        source_refs = evidence.get("sourceRefs")
+        v.require(isinstance(source_refs, list) and bool(source_refs) and all(isinstance(ref, str) and ref.strip() for ref in source_refs), f"slide {slide_id} records source references for its layout")
+        item_count_tag = any(
+            re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+            and re.search(rf"data-item-count=[\"']{item_count}[\"']", tag)
+            for tag in tags
+        )
+        v.require(item_count_tag, f"slide {slide_id} HTML agrees with the recorded layout item count")
+        if layout in LAYOUT_ITEM_LIMITS and isinstance(item_count, int):
+            minimum, maximum = LAYOUT_ITEM_LIMITS[layout]
+            v.require(minimum <= item_count <= maximum, f"slide {slide_id} item count fits {layout} ({minimum}-{maximum})")
         content_type = item.get("contentType")
         v.require(content_type in {"cover", "narrative", "qualitative", "data", "process", "comparison", "close"}, f"slide {slide_id} has a valid content type")
         if content_type == "data":
             v.require(layout in DATA_LAYOUTS, f"slide {slide_id} data uses a data layout")
             v.require(bool(item.get("dataSources")), f"slide {slide_id} data has sources")
+            if layout in {"A3", "B7", "B18", "B20", "B21"}:
+                numeric_values = evidence.get("numericValues")
+                v.require(isinstance(numeric_values, list) and len(numeric_values) == item_count, f"slide {slide_id} data count matches its numeric evidence")
+                v.require(isinstance(numeric_values, list) and all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in numeric_values), f"slide {slide_id} numeric evidence contains only numbers")
         else:
             v.require(layout not in DATA_LAYOUTS, f"slide {slide_id} does not misuse a data layout")
         effect = item.get("visualEffect", {})

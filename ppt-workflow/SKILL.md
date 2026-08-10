@@ -251,7 +251,8 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 1. 读 `references/layout-library.md` 的「选版式决策表」（位于 B 系列布局之后）+ `references/design-system.md`
 2. 从数据护照的「主题方案」字段 → 查 `references/theme-tokens.md`，读取完整 `:root` CSS 变量
 3. 每页先确定内容形状（数据 or 论断？几项对等？有无时间轴？有无图片？）
-4. 为每页登记一个布局编号（叙事风 A1–A10 / 事实风 B1–B22 / Bento C1–C9）
+4. 为每页登记一个布局编号（叙事风 A1–A10 / 事实风 B1–B22 / Bento C1–C9），并在 `workflow-state.json` 的 `layoutEvidence` 中记录重复内容数 `itemCount`、对应素材 `sourceRefs`；量化版式还要记录 `numericValues`
+5. 在对应 `.slide` 容器写入相同的 `data-item-count`，使检查器能核对清单与 HTML 是否一致
 5. **P0 规则：内容数据类型必须匹配版式**——有真实数据用数据版式（B6/B7/B20/B21），无数据禁编造数字硬塞（⚠️ 禁 B6/B7 于纯概念列举）
 6. **P0 规则：token 一致性**——所有颜色/圆角/阴影走 CSS 变量；叙事风（A）可用圆角/阴影，事实风（B）必须直角无阴影（`--radius:0; --shadow:none`）
 7. **反俗套字体检查（修补时机）**：从 theme-tokens.md 复制 CSS `:root` 变量到 HTML 时**同步**检查 `--font-display`——如果回退链含 Inter/Roboto，在复制的同时替换为 `'Noto Sans SC','Microsoft YaHei',sans-serif`。避免"先复制不改、后面再改"的两段式修补。上游原始 token 值在 theme-tokens.md 中保持不变（数据溯源）。
@@ -308,13 +309,13 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer exec --task <task_dir>
 ```
 
-脚本自动核对 HTML 页数与清单一致性、每页内嵌布局、内容类型与数据版式匹配、锁定护照、逐页视觉增强决策和页面节奏。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入交付层。**
+脚本自动核对 HTML 页数与清单一致性、每页内嵌布局、布局的内容数量/数值证据、内容类型与数据版式匹配、锁定护照、逐页视觉增强决策和页面节奏。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入交付层。**
 
 ```
 [ ] check_workflow_state.py --layer exec 已运行且全部 PASS
 [ ] quick-reference-card 已读
-[ ] 每页已登记布局编号（HTML 注释 LAYOUT: X）
-[ ] 数据-版式 P0 匹配（有数据用 B6/B7/B20/B21，无数据禁 B6/B7）
+[ ] 每页已登记布局编号、`layoutEvidence` 和 HTML `data-item-count`
+[ ] 数据-版式 P0 匹配（有数据用 A3/B2/B6/B7/B18/B20/B21，无数据禁这些量化版式）
 [ ] 事实风(B) 直角无阴影，叙事风(A)/Bento(C) 用圆角
 [ ] --font-display 含 Inter/Roboto 已替换为 Noto Sans SC / Microsoft YaHei
 [ ] 8页+ deck 已画节奏表（先画表再动手）
