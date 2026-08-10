@@ -36,3 +36,13 @@ and verification so a change can be reverted with Git.
 - Verification: Python compilation passed. The gate correctly fails while the
   Playwright Chromium executable is absent, while confirming that the Python
   conversion dependencies are present in the workspace virtual environment.
+
+## 2026-08-10 - Execution Evidence Regression
+
+- Added cross-layer page-count checks and a required `data-slide-id` plus
+  `data-layout` binding for every manifest slide.
+- Added verification that a declared ECharts, Three.js, shader, Matter,
+  Spline, or Canvas effect has a corresponding HTML signal.
+- Verification: a two-page AI adoption simulation passed 28 execution checks,
+  including layout/data compatibility, source evidence, theme lock, and effect
+  presence.

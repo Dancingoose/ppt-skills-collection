@@ -87,6 +87,10 @@ def check_execution(state, task_dir, v):
     slides = execution.get("slides", [])
     v.require(isinstance(slides, list) and bool(slides), "execution.slides is non-empty")
     v.require(slide_count(html) == len(slides), "HTML slide count matches execution manifest")
+    expected_count = state.get("decision", {}).get("phase2", {}).get("pageCount")
+    v.require(len(slides) == expected_count, "execution slide count matches approved page count")
+    planned_count = state.get("prep", {}).get("pagePlan", {}).get("count")
+    v.require(len(slides) == planned_count, "execution slide count matches preparation plan")
     seen_ids = set()
     for item in slides:
         slide_id = item.get("id")
@@ -94,7 +98,14 @@ def check_execution(state, task_dir, v):
         v.require(isinstance(slide_id, int) and slide_id not in seen_ids, f"slide {slide_id} has a unique id")
         seen_ids.add(slide_id)
         v.require(isinstance(layout, str) and bool(LAYOUT_RE.fullmatch(layout)), f"slide {slide_id} has a valid layout")
-        v.require(f'data-layout="{layout}"' in html or f"data-layout='{layout}'" in html, f"slide {slide_id} layout is embedded in HTML")
+        tags = re.findall(r"<[^>]+>", html)
+        matching_tag = any(
+            re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+            and re.search(rf"data-layout=[\"']{re.escape(layout)}[\"']", tag)
+            and re.search(r"class=[\"'][^\"']*\bslide\b", tag)
+            for tag in tags
+        )
+        v.require(matching_tag, f"slide {slide_id} layout is embedded in its HTML container")
         content_type = item.get("contentType")
         v.require(content_type in {"cover", "narrative", "qualitative", "data", "process", "comparison", "close"}, f"slide {slide_id} has a valid content type")
         if content_type == "data":
@@ -106,7 +117,16 @@ def check_execution(state, task_dir, v):
         v.require(effect.get("status") in {"applied", "skipped"}, f"slide {slide_id} visual effect decision exists")
         v.value(effect, "reason", f"slide {slide_id} visual effect has a reason")
         if effect.get("status") == "applied":
-            v.value(effect, "type", f"slide {slide_id} applied effect has a type")
+            effect_type = v.value(effect, "type", f"slide {slide_id} applied effect has a type")
+            signal = {
+                "echarts": r"echarts",
+                "three": r"three(?:@|\.module|\.js)",
+                "shader": r"x-shader/x-fragment|shader-web-background",
+                "matter": r"matter-js|Matter\.Engine",
+                "spline": r"spline-viewer",
+                "canvas": r"<canvas",
+            }.get(effect_type)
+            v.require(signal is not None and bool(re.search(signal, html, re.I)), f"slide {slide_id} applied effect is present in HTML")
     colors = [bool(item.get("dark")) for item in slides]
     v.require(not any(colors[i] == colors[i + 1] == colors[i + 2] for i in range(max(0, len(colors) - 2))), "no three consecutive slides share a background mode")
     if len(slides) >= 8:
