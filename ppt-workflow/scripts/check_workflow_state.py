@@ -61,6 +61,43 @@ def inventory_section(content, heading):
     return match.group(1).strip() if match else ""
 
 
+def task_artifact_path(task_dir: Path, name):
+    if not isinstance(name, str) or not name.strip():
+        return None
+    try:
+        path = (task_dir / name).resolve()
+        path.relative_to(task_dir.resolve())
+        return path
+    except (OSError, ValueError):
+        return None
+
+
+def load_json_artifact(task_dir: Path, name, label, v: Validator):
+    path = task_artifact_path(task_dir, name)
+    v.require(path is not None and path.is_file(), f"{label} artifact exists")
+    if path is None or not path.is_file():
+        return {}
+    try:
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        v.require(False, f"{label} artifact is valid JSON ({exc})")
+        return {}
+    return artifact if isinstance(artifact, dict) else {}
+
+
+def check_anti_template_artifact(review, task_dir, v):
+    v.require(review.get("skill") == "ppt-workflow-review", "anti-template review uses the packaged review skill")
+    artifact_name = v.value(review, "artifact", "anti-template review artifact is recorded")
+    artifact = load_json_artifact(task_dir, artifact_name, "anti-template review", v)
+    v.require(artifact.get("schemaVersion") == 1, "anti-template review artifact has schema version")
+    v.require(artifact.get("skill") == "ppt-workflow-review", "anti-template review artifact identifies the review skill")
+    v.require(artifact.get("result") == review.get("result"), "anti-template review artifact agrees with the manifest result")
+    areas = artifact.get("reviewedAreas")
+    v.require(isinstance(areas, list) and {"intent", "evidence", "theme", "typography", "layouts"}.issubset(set(areas)),
+              "anti-template review artifact covers intent, evidence, theme, typography, and layouts")
+    v.value(artifact, "notes", "anti-template review artifact has notes")
+
+
 def check_prep(state, task_dir, v):
     inventory_path = task_dir / "content-inventory.md"
     v.require(inventory_path.is_file(), "content-inventory.md exists")
@@ -99,14 +136,20 @@ def check_decision(state, task_dir, v):
     v.value(review, "reviewer", "anti-template reviewer is named")
     v.require(review.get("result") in {"pass", "revised"}, "anti-template review has a result")
     v.value(review, "notes", "anti-template review has notes")
+    check_anti_template_artifact(review, task_dir, v)
     preview = decision.get("preview", {})
     preview_name = v.value(preview, "html", "decision preview HTML is recorded")
     preview_path = task_dir / preview_name if isinstance(preview_name, str) else None
     v.require(preview_path is not None and preview_path.is_file(), "decision preview HTML exists")
     preview_html = preview_path.read_text(encoding="utf-8", errors="ignore") if preview_path and preview_path.is_file() else ""
-    v.require(slide_count(preview_html) >= 2, "decision preview contains a cover and representative content slide")
+    page_count = phase2.get("pageCount")
+    required_preview_slides = min(2, page_count) if isinstance(page_count, int) and page_count > 0 else 2
+    v.require(slide_count(preview_html) >= required_preview_slides,
+              f"decision preview contains {required_preview_slides} planned preview slide(s)")
     preview_ids = preview.get("slideIds")
-    v.require(isinstance(preview_ids, list) and len(preview_ids) >= 2 and all(isinstance(item, int) for item in preview_ids), "decision preview records at least two slide ids")
+    v.require(isinstance(preview_ids, list) and len(preview_ids) >= required_preview_slides
+              and all(isinstance(item, int) for item in preview_ids),
+              f"decision preview records at least {required_preview_slides} slide id(s)")
     if isinstance(preview_ids, list):
         for slide_id in preview_ids:
             v.require(f'data-slide-id="{slide_id}"' in preview_html or f"data-slide-id='{slide_id}'" in preview_html, f"decision preview includes slide {slide_id}")
@@ -148,6 +191,12 @@ def check_execution(state, task_dir, v):
             for tag in tags
         )
         v.require(matching_tag, f"slide {slide_id} layout is embedded in its HTML container")
+        discoverable_tag = any(
+            re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+            and re.search(r"\bdata-pptx-slide\b", tag)
+            for tag in tags
+        )
+        v.require(discoverable_tag, f"slide {slide_id} is explicitly discoverable by the converter")
         evidence = item.get("layoutEvidence", {})
         item_count = evidence.get("itemCount")
         v.require(isinstance(item_count, int) and item_count >= 0, f"slide {slide_id} records a layout item count")
@@ -191,6 +240,29 @@ def check_execution(state, task_dir, v):
     v.require(not any(colors[i] == colors[i + 1] == colors[i + 2] for i in range(max(0, len(colors) - 2))), "no three consecutive slides share a background mode")
     if len(slides) >= 8:
         v.require(any(colors) and not all(colors), "long deck contains both light and dark rhythm pages")
+    effect_scan = execution.get("effectScan", {})
+    v.require(effect_scan.get("skill") == "ppt-workflow-effects", "effect scan uses the packaged effects skill")
+    scan_name = v.value(effect_scan, "artifact", "effect scan artifact is recorded")
+    scan = load_json_artifact(task_dir, scan_name, "effect scan", v)
+    v.require(scan.get("schemaVersion") == 1, "effect scan artifact has schema version")
+    v.require(scan.get("skill") == "ppt-workflow-effects", "effect scan artifact identifies the effects skill")
+    reviewed_slides = effect_scan.get("reviewedSlides")
+    v.require(isinstance(reviewed_slides, list) and set(reviewed_slides) == seen_ids
+              and len(reviewed_slides) == len(seen_ids),
+              "effect scan manifest covers every slide exactly once")
+    scan_slides = scan.get("slides")
+    v.require(isinstance(scan_slides, list), "effect scan artifact has slide records")
+    scan_by_id = {entry.get("id"): entry for entry in scan_slides if isinstance(entry, dict)} if isinstance(scan_slides, list) else {}
+    v.require(set(scan_by_id) == seen_ids and len(scan_by_id) == len(seen_ids)
+              and isinstance(scan_slides, list) and len(scan_slides) == len(seen_ids),
+              "effect scan artifact covers every slide exactly once")
+    for item in slides:
+        scan_item = scan_by_id.get(item.get("id"), {})
+        effect = item.get("visualEffect", {})
+        v.require(scan_item.get("status") == effect.get("status"), f"slide {item.get('id')} effect scan agrees with manifest status")
+        v.require(scan_item.get("reason") == effect.get("reason"), f"slide {item.get('id')} effect scan agrees with manifest reason")
+        if effect.get("status") == "applied":
+            v.require(scan_item.get("type") == effect.get("type"), f"slide {item.get('id')} effect scan agrees with manifest type")
     source_review = execution.get("sourceVisualReview", {})
     v.require(source_review.get("result") in {"pass", "revised"}, "source HTML visual review has a result")
     reviewed_slides = source_review.get("reviewedSlides")

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPTX Delivery Audit"
+  short_description: "Convert PPT HTML and audit the delivered slides."
+  default_prompt: "Use $ppt-workflow-delivery to convert and audit this presentation."

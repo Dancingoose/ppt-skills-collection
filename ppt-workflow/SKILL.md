@@ -170,7 +170,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer pr
 - **审查对象**：设计护照中的风格方向、主题方案、配色 hex、字体选择
 - **审查依据**：对照 `layout-library.md` 末尾「反 AI 俗套清单」（13 条，合集唯一权威版本）+ `design-system.md` token 层反俗套约束
 - **标记并替代**：标记可能滑向 AI 俗套的选型（cream 底色 F4F1EA、Inter/Roboto 默认字体、emojis 图标、纯卡片堆叠、无数据页用数据版式），给出 1-2 个替代方案
-- **执行**：加载 `Skill("frontend-design")` 让通用的设计判断能力介入，但审查的具体规则以合集两条反俗套清单为准
+- **执行与证据**：运行 `ppt-workflow-review` 的审查程序；审查的具体规则以合集两条反俗套清单为准。将结论写入 `anti-template-review.json`（包含 `schemaVersion: 1`、`skill: "ppt-workflow-review"`、`result`、`notes` 和覆盖 `intent/evidence/theme/typography/layouts` 的 `reviewedAreas`），再将同一结论和文件名登记到 `decision.antiTemplateReview`。
 
 **一次即可，不需要每页重复。** 审查发现问题则替换有问题的选型，无问题则带着审查结论进入 Step 1 方案预览。**锁定发生在 Step 2（用户选定方案后），不是审查环节**——审查只是给方案预览前的护照把关。
 
@@ -190,7 +190,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 [ ] 按场景选了 skill（claude-design / ui-ux-pro-max / mbb-decks / 跳过快速路径）
 [ ] 方向名称用了 10 种设计语言的精确名称（映射表可匹配）
 [ ] Phase 2 完成（页数/主题方案/风格版本数等）
-[ ] 反模板审查已做（frontend-design，一次即可）
+[ ] 反模板审查已做，并有 `anti-template-review.json` 作为证据（一致登记到 manifest）
 [ ] 设计护照 4 个关键字段已填：配色 hex / 字体 / 风格方向 / 主题方案
 [ ] `preview.html` 已包含封面和代表性内容页；用户确认记录已写入 `workflow-state.json` 的 `decision.preview`
 ```
@@ -226,10 +226,10 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 候选主题在 Phase 2「主题方案」选项中呈现给用户确认。若 Phase 2 用户已选 1 个主题，Step 1 展示该主题的 3 个风格变体（如字号强度差异／叙事 vs 事实 mode）；若 Phase 2 用户未选（选了"你来定"），Step 1 展示 3 个不同主题的方案预览。从 theme-tokens.md 读取对应主题的完整 token。
 
-- 三版放同一个 HTML 文件里，tab 或并列展示
+- 多页 deck：至少在同一个 HTML 文件中展示封面 + 1 张典型内容页（tab 或并列皆可）；**单页交付物**（如公众号头图、单页 A4 海报）则展示该唯一成品页并记录用户确认，不要为了通过门禁虚构第二页
 - `ppt169` 使用 1920×1080 canvas，正文 ≥ 24px；非 16:9 画布按
   `<collection_root>/references/canvas-formats.md` 的原生尺寸和字号规则实现
-- 每版展示：封面 + 1 张典型内容页（如部门总述）
+- 多页 deck 的每版展示：封面 + 1 张典型内容页（如部门总述）；单页交付物沿用其唯一成品页
 - 每版附风格描述 + 该主题的 accent hex 色块
 
 ### Step 2: 用户选定方案 → 锁定设计护照
@@ -257,7 +257,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 2. 从数据护照的「主题方案」字段 → 查 `<collection_root>/references/theme-tokens.md`，读取完整 `:root` CSS 变量
 3. 每页先确定内容形状（数据 or 论断？几项对等？有无时间轴？有无图片？）
 4. 为每页登记一个布局编号（叙事风 A1–A10 / 事实风 B1–B22 / Bento C1–C9），并在 `workflow-state.json` 的 `layoutEvidence` 中记录重复内容数 `itemCount`、对应素材 `sourceRefs`；量化版式还要记录 `numericValues`
-5. 在对应 `.slide` 容器写入相同的 `data-item-count`，使检查器能核对清单与 HTML 是否一致
+5. 在对应 `.slide` 容器写入相同的 `data-item-count`，并写入 `data-pptx-slide`；后者是转换器唯一可靠的 slide 发现标记，尤其对 900×383 等小尺寸或超宽画布不可省略
 5. **P0 规则：内容数据类型必须匹配版式**——有真实数据用数据版式（B6/B7/B20/B21），无数据禁编造数字硬塞（⚠️ 禁 B6/B7 于纯概念列举）
 6. **P0 规则：token 一致性**——所有颜色/圆角/阴影走 CSS 变量；叙事风（A）可用圆角/阴影，事实风（B）必须直角无阴影（`--radius:0; --shadow:none`）
 7. **反俗套字体检查（修补时机）**：从 theme-tokens.md 复制 CSS `:root` 变量到 HTML 时**同步**检查 `--font-display`——如果回退链含 Inter/Roboto，在复制的同时替换为 `'Noto Sans SC','Microsoft YaHei',sans-serif`。避免"先复制不改、后面再改"的两段式修补。上游原始 token 值在 theme-tokens.md 中保持不变（数据溯源）。
@@ -275,13 +275,13 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 ### Step 6: 逐页注入视觉增强 — `ppt-visual-effects` 强制步骤
 
-**加载一次 `Skill("ppt-visual-effects")`，然后对每一页在完成 HTML 结构后执行扫描：**
+**运行一次 `ppt-workflow-effects`，然后对每一页在完成 HTML 结构后执行扫描：**
 
 1. 按 ppt-visual-effects 的扫描规则判断该页是否需要增强
 2. 如需增强，将生成的代码嵌入该页 `.slide` 容器内
 3. 验证：增强代码在浏览器可直接运行，颜色走设计系统 CSS 变量
 
-**不可跳过。** 即使判断"该页不需要增强"，也必须加载 skill 后逐页扫描（同一次加载即可，不需要每页重复加载 SKILL.md）。
+**不可跳过。** 即使判断"该页不需要增强"，也必须执行逐页扫描（同一次即可）。将结果写入 `effects-scan.json`：根对象必须包含 `schemaVersion: 1`、`skill: "ppt-workflow-effects"` 和 `slides`；每页记录 `id`、`status`、`reason`，应用效果时还要记录 `type`。在 `execution.effectScan` 登记该文件和所有 slide ID；检查器会逐项比对它与 `visualEffect`。
 
 | 页面内容信号 | 自动注入 | 库 |
 |-------------|---------|-----|

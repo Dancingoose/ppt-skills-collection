@@ -1,5 +1,30 @@
 # Workflow Change Log
 
+## 2026-08-11 - Codex Companion Skills And File-Backed Execution Evidence
+
+- Packaged four independently discoverable Codex companion skills:
+  `ppt-workflow-review`, `ppt-workflow-authoring`, `ppt-workflow-effects`,
+  and `ppt-workflow-delivery`. The root studio skill now directs each critical
+  stage to an explicit procedure instead of relying on legacy, unregistered
+  `Skill(...)` names.
+- Replaced self-attested anti-template and visual-effect decisions with
+  fail-closed JSON evidence. `anti-template-review.json` must record review of
+  intent, evidence, theme, typography, and layout; `effects-scan.json` must
+  cover each slide exactly once and agree with the manifest's effect status,
+  reason, and type.
+- Made one-page deliveries legitimate: preview requirements now use the
+  smaller of two pages and the planned deck length, retaining explicit creator
+  approval without inventing a second page for a WeChat header or single A4
+  poster.
+- Required `data-pptx-slide` on every slide container. This replaces fragile
+  geometric discovery for small or ultra-wide canvases, which otherwise can
+  silently measure zero pages.
+- Verification: 33 workflow tests and 12 converter tests pass. A fresh,
+  single-page `wechat` (900x383) image-led header passed all 87 workflow gates,
+  measured and rendered at native size, produced a 5715000x2432050 EMU PPTX,
+  and passed manual HTML/PowerPoint visual comparison with zero structural
+  warnings.
+
 ## 2026-08-11 - 3:4 Xiaohongshu Image-Led Delivery Evidence
 
 - Independently exercised the previously untested 1242x1660 Xiaohongshu

@@ -11,7 +11,7 @@
     "phase1": {"audience": "Leadership", "intent": "Decision", "coreClaim": "A specific conclusion", "canvas": "ppt169"},
     "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none"},
     "passport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial"},
-    "antiTemplateReview": {"reviewer": "frontend-design", "result": "pass", "notes": "No default card stack or unsuitable type."},
+    "antiTemplateReview": {"reviewer": "ppt-workflow-review", "skill": "ppt-workflow-review", "artifact": "anti-template-review.json", "result": "pass", "notes": "No default card stack or unsuitable type. The artifact records intent, evidence, theme, typography, and layout review."},
     "preview": {"html": "preview.html", "slideIds": [1, 2], "result": "approved", "notes": "The creator approved the cover and representative data page before full expansion."}
   },
   "execution": {
@@ -21,6 +21,7 @@
       {"id": 1, "layout": "A1", "contentType": "cover", "dark": true, "layoutEvidence": {"itemCount": 0, "sourceRefs": ["content-inventory.md: Slide 1"]}, "visualEffect": {"status": "skipped", "reason": "Text-led cover; no effect supports the message."}},
       {"id": 2, "layout": "B6", "contentType": "data", "dataSources": ["Publisher"], "dark": false, "layoutEvidence": {"itemCount": 1, "sourceRefs": ["Publisher"], "numericValues": [12000000]}, "visualEffect": {"status": "applied", "type": "echarts", "reason": "Trend data benefits from a chart."}}
     ],
+    "effectScan": {"skill": "ppt-workflow-effects", "artifact": "effects-scan.json", "reviewedSlides": [1, 2]},
     "sourceVisualReview": {"result": "pass", "reviewedSlides": [1, 2], "notes": "Reviewed every source HTML slide at its native canvas size for overlap, clipping, and contrast before conversion."},
     "independentReview": {"result": "pass", "notes": "No overlap, overflow, or contrast issue."}
   },
