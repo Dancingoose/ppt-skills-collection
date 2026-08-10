@@ -28,6 +28,7 @@ def valid_state():
             "phase2": {"pageCount": 2, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none"},
             "passport": passport,
             "antiTemplateReview": {"reviewer": "frontend-design", "result": "pass", "notes": "Specific layout choices."},
+            "preview": {"html": "preview.html", "slideIds": [1, 2], "result": "approved", "notes": "Approved representative slides."},
         },
         "execution": {
             "html": "design.html", "lockedPassport": copy.deepcopy(passport),
@@ -50,6 +51,11 @@ HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/e
 <section class='slide' data-slide-id='2' data-layout='B6' data-item-count='1'></section>
 </body></html>"""
 
+PREVIEW_HTML = """<!doctype html><html><body>
+<section class='slide' data-slide-id='1'></section>
+<section class='slide' data-slide-id='2'></section>
+</body></html>"""
+
 
 class WorkflowStateTests(unittest.TestCase):
     def write_task(self, state=None, html=HTML):
@@ -58,6 +64,7 @@ class WorkflowStateTests(unittest.TestCase):
         if state is not None:
             (task / "workflow-state.json").write_text(json.dumps(state), encoding="utf-8")
         (task / "design.html").write_text(html, encoding="utf-8")
+        (task / "preview.html").write_text(PREVIEW_HTML, encoding="utf-8")
         self.addCleanup(directory.cleanup)
         return task
 
@@ -84,6 +91,16 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "prep")
         self.assertEqual(result.returncode, 2)
         self.assertIn("prep.coreMessage", result.stdout)
+
+    def test_decision_requires_approved_preview_file(self):
+        state = valid_state()
+        state["decision"]["preview"]["result"] = "draft"
+        task = self.write_task(state)
+        (task / "preview.html").unlink()
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("decision preview HTML exists", result.stdout)
+        self.assertIn("decision preview is approved", result.stdout)
 
     def test_qualitative_slide_cannot_claim_data_layout(self):
         state = valid_state()

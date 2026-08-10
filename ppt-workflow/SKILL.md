@@ -189,6 +189,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 [ ] Phase 2 完成（页数/主题方案/风格版本数等）
 [ ] 反模板审查已做（frontend-design，一次即可）
 [ ] 设计护照 4 个关键字段已填：配色 hex / 字体 / 风格方向 / 主题方案
+[ ] `preview.html` 已包含封面和代表性内容页；用户确认记录已写入 `workflow-state.json` 的 `decision.preview`
 ```
 
 ---

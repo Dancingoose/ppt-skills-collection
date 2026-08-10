@@ -4,6 +4,22 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-11 - Enforced Design Preview Evidence
+
+- Added a fail-closed decision gate for `preview.html`: it must contain at
+  least a cover and representative content slide, identify the previewed slide
+  IDs, and record approval notes before full deck expansion can pass.
+- Added regression coverage for missing or unapproved preview evidence and
+  updated the state template and Codex plugin instructions.
+- Reason: the workflow documented a preview-and-approval discipline but its
+  validator allowed a deck to skip that user-control point entirely.
+- Verification: workflow suite has 19 passing tests. A new five-page,
+  PDF-sourced simulation extracted the poster image, converted and reviewed a
+  two-page preview before simulated approval, then passed 19 preparation, 27
+  decision, 69 execution, and final delivery checks. All five HTML/PPT
+  comparisons were reviewed without clipping, overlap, missing assets, or
+  material layout divergence.
+
 ## 2026-08-11 - PDF Material Extraction And Authoritative Gate Clarification
 
 - Added local, page-indexed PDF text extraction through `pypdf`, including

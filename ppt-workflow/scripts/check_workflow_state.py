@@ -71,7 +71,7 @@ def check_prep(state, v):
         v.require(bool(point.get("url")) or bool(point.get("citation")), f"data point {index} has a URL or citation")
 
 
-def check_decision(state, v):
+def check_decision(state, task_dir, v):
     decision = state.get("decision", {})
     phase1 = decision.get("phase1", {})
     for key in ("audience", "intent", "coreClaim", "canvas"):
@@ -87,6 +87,19 @@ def check_decision(state, v):
     v.value(review, "reviewer", "anti-template reviewer is named")
     v.require(review.get("result") in {"pass", "revised"}, "anti-template review has a result")
     v.value(review, "notes", "anti-template review has notes")
+    preview = decision.get("preview", {})
+    preview_name = v.value(preview, "html", "decision preview HTML is recorded")
+    preview_path = task_dir / preview_name if isinstance(preview_name, str) else None
+    v.require(preview_path is not None and preview_path.is_file(), "decision preview HTML exists")
+    preview_html = preview_path.read_text(encoding="utf-8", errors="ignore") if preview_path and preview_path.is_file() else ""
+    v.require(slide_count(preview_html) >= 2, "decision preview contains a cover and representative content slide")
+    preview_ids = preview.get("slideIds")
+    v.require(isinstance(preview_ids, list) and len(preview_ids) >= 2 and all(isinstance(item, int) for item in preview_ids), "decision preview records at least two slide ids")
+    if isinstance(preview_ids, list):
+        for slide_id in preview_ids:
+            v.require(f'data-slide-id="{slide_id}"' in preview_html or f"data-slide-id='{slide_id}'" in preview_html, f"decision preview includes slide {slide_id}")
+    v.require(preview.get("result") == "approved", "decision preview is approved before expansion")
+    v.value(preview, "notes", "decision preview has approval notes")
 
 
 def slide_count(html: str):
@@ -217,6 +230,8 @@ def main():
         if name == "exec":
             check(state, args.task, v)
         elif name == "deliver":
+            check(state, args.task, v)
+        elif name == "decision":
             check(state, args.task, v)
         else:
             check(state, v)
