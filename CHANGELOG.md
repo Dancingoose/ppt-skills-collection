@@ -1,5 +1,23 @@
 # Workflow Change Log
 
+## 2026-08-11 - Review Hash Binding And A4 Print Evidence
+
+- Bound source and delivery review to the actual artifacts. A source review now
+  records SHA-256 for the reviewed HTML and a delivery audit records SHA-256
+  for the audited PPTX; the workflow gate recomputes both hashes and fails if
+  either artifact changes after its review.
+- Added regressions for HTML changed after source review and PPTX changed after
+  delivery audit. This closes the prior gap where a manifest could retain a
+  passing review while its reviewed artifact had been replaced.
+- Independently exercised an A4 (1240x1754) two-page, print-first field guide.
+  It used B22 for a source-poster-plus-three-qualified-figures page and B11 for
+  the participation route. The gate caught the original three-node B11 misuse;
+  the revised four-node, source-backed route passed after a fresh source review.
+- Verification: 35 workflow tests and 12 converter tests pass. The A4 task
+  passed 113 structured checks, rendered at native 1240x1754 in HTML and
+  PowerPoint, produced a 7874000x11137900 EMU PPTX, and passed both native
+  visual comparisons without structural warnings or interactive effects.
+
 ## 2026-08-11 - Codex Companion Skills And File-Backed Execution Evidence
 
 - Packaged four independently discoverable Codex companion skills:

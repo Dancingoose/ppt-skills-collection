@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import json
 import subprocess
 import sys
@@ -48,7 +49,7 @@ def valid_state():
             },
             "sourceVisualReview": {
                 "result": "pass", "reviewedSlides": [1, 2],
-                "notes": "Reviewed each source slide for overlap, clipping, and contrast.",
+                "htmlSha256": "", "notes": "Reviewed each source slide for overlap, clipping, and contrast.",
             },
             "independentReview": {"result": "pass", "notes": "No layout defects."},
         },
@@ -89,6 +90,10 @@ class WorkflowStateTests(unittest.TestCase):
         (task / "design.html").write_text(html, encoding="utf-8")
         (task / "preview.html").write_text(PREVIEW_HTML, encoding="utf-8")
         if state is not None:
+            source_review = state["execution"].get("sourceVisualReview")
+            if isinstance(source_review, dict):
+                source_review["htmlSha256"] = hashlib.sha256((task / "design.html").read_bytes()).hexdigest()
+            (task / "workflow-state.json").write_text(json.dumps(state), encoding="utf-8")
             review = state["decision"]["antiTemplateReview"]
             (task / review["artifact"]).write_text(json.dumps({
                 "schemaVersion": 1,
@@ -210,6 +215,13 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertIn("source HTML visual review has a result", result.stdout)
         self.assertIn("source HTML visual review covers every slide", result.stdout)
 
+    def test_execution_rejects_html_changed_after_source_review(self):
+        task = self.write_task(valid_state())
+        (task / "design.html").write_text(HTML + "<!-- changed after review -->", encoding="utf-8")
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("source HTML has not changed since visual review", result.stdout)
+
     def test_execution_requires_a_file_backed_effect_scan(self):
         state = valid_state()
         task = self.write_task(state)
@@ -281,6 +293,23 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(task, "deliver")
         self.assertEqual(result.returncode, 2)
         self.assertIn("delivery audit reviewed every slide", result.stdout)
+
+    def test_delivery_rejects_pptx_changed_after_audit(self):
+        state = valid_state()
+        state["delivery"].update({
+            "output": "deck.pptx",
+            "audit": {"result": "pass", "reviewedPages": 2, "pptxSha256": "", "notes": "Audited output."},
+        })
+        task = self.write_task(state)
+        pptx_path = task / "deck.pptx"
+        pptx_path.write_bytes(b"audited output")
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["audit"]["pptxSha256"] = hashlib.sha256(pptx_path.read_bytes()).hexdigest()
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        pptx_path.write_bytes(b"changed after audit")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("PPTX has not changed since delivery audit", result.stdout)
 
 
 if __name__ == "__main__":

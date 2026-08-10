@@ -283,6 +283,8 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 **不可跳过。** 即使判断"该页不需要增强"，也必须执行逐页扫描（同一次即可）。将结果写入 `effects-scan.json`：根对象必须包含 `schemaVersion: 1`、`skill: "ppt-workflow-effects"` 和 `slides`；每页记录 `id`、`status`、`reason`，应用效果时还要记录 `type`。在 `execution.effectScan` 登记该文件和所有 slide ID；检查器会逐项比对它与 `visualEffect`。
 
+**审查绑定：** 源页逐张目检完成后，对最终的 `execution.html` 计算 SHA-256 并写入 `execution.sourceVisualReview.htmlSha256`。交付 PPTX 对比审计完成后，对该 PPTX 计算 SHA-256 并写入 `delivery.audit.pptxSha256`。任一文件在审查后被改动，门禁必须重新失败，直到重新审查并更新对应哈希。
+
 | 页面内容信号 | 自动注入 | 库 |
 |-------------|---------|-----|
 | 深色封面/过渡/CTA 页 | 动态着色器背景（ocean/aurora/particle） | Shadertoy |

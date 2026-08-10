@@ -22,8 +22,8 @@
       {"id": 2, "layout": "B6", "contentType": "data", "dataSources": ["Publisher"], "dark": false, "layoutEvidence": {"itemCount": 1, "sourceRefs": ["Publisher"], "numericValues": [12000000]}, "visualEffect": {"status": "applied", "type": "echarts", "reason": "Trend data benefits from a chart."}}
     ],
     "effectScan": {"skill": "ppt-workflow-effects", "artifact": "effects-scan.json", "reviewedSlides": [1, 2]},
-    "sourceVisualReview": {"result": "pass", "reviewedSlides": [1, 2], "notes": "Reviewed every source HTML slide at its native canvas size for overlap, clipping, and contrast before conversion."},
+    "sourceVisualReview": {"result": "pass", "reviewedSlides": [1, 2], "htmlSha256": "[SHA-256 of the reviewed execution HTML]", "notes": "Reviewed every source HTML slide at its native canvas size for overlap, clipping, and contrast before conversion."},
     "independentReview": {"result": "pass", "notes": "No overlap, overflow, or contrast issue."}
   },
-  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true, "output": "example.pptx", "audit": {"result": "pass", "reviewedPages": 2, "notes": "Reviewed HTML/PPT comparisons and resolved all findings."}}
+  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true, "output": "example.pptx", "audit": {"result": "pass", "reviewedPages": 2, "pptxSha256": "[SHA-256 of the audited PPTX]", "notes": "Reviewed HTML/PPT comparisons and resolved all findings."}}
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed validation for PPT workflow evidence stored in workflow-state.json."""
 import argparse
+import hashlib
 import importlib.util
 import json
 import re
@@ -270,6 +271,9 @@ def check_execution(state, task_dir, v):
               and len(reviewed_slides) == len(seen_ids),
               "source HTML visual review covers every slide exactly once")
     v.value(source_review, "notes", "source HTML visual review has notes")
+    reviewed_html_hash = v.value(source_review, "htmlSha256", "source HTML visual review records the reviewed HTML hash")
+    actual_html_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
+    v.require(reviewed_html_hash == actual_html_hash, "source HTML has not changed since visual review")
     review = execution.get("independentReview", {})
     v.require(review.get("result") in {"pass", "revised"}, "independent execution review has a result")
     v.value(review, "notes", "independent execution review has notes")
@@ -305,6 +309,9 @@ def check_delivery(state, task_dir, v):
         v.require(audit.get("result") in {"pass", "revised"}, "delivery audit has a result")
         v.require(isinstance(audit.get("reviewedPages"), int) and audit["reviewedPages"] == len(expected_pages), "delivery audit reviewed every slide")
         v.value(audit, "notes", "delivery audit has notes")
+        audited_pptx_hash = v.value(audit, "pptxSha256", "delivery audit records the audited PPTX hash")
+        actual_pptx_hash = hashlib.sha256((task_dir / output).read_bytes()).hexdigest() if isinstance(output, str) and (task_dir / output).is_file() else ""
+        v.require(audited_pptx_hash == actual_pptx_hash, "PPTX has not changed since delivery audit")
 
 
 def main():
