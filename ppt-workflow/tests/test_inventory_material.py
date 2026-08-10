@@ -61,6 +61,14 @@ class InventoryMaterialTests(unittest.TestCase):
         self.assertEqual(refs[0]["source"], str(source.resolve()))
         self.assertIn("inspect visually", refs[0]["description"])
 
+    def test_csv_keeps_headers_rows_and_numeric_columns(self):
+        source = self.temporary_file("budget.csv", "项目,金额(元),说明\n宣传物料,2500,\"海报, 横幅\"\n舞台设备,4000,音响\n")
+        tables, warnings = INVENTORY.csv_table_refs(source)
+        self.assertEqual(warnings, [])
+        self.assertEqual(tables[0]["headers"], ["项目", "金额(元)", "说明"])
+        self.assertEqual(tables[0]["rowCount"], 2)
+        self.assertEqual(tables[0]["numericColumns"], [{"name": "金额(元)", "values": [2500.0, 4000.0]}])
+
     def test_pdf_text_keeps_page_boundaries(self):
         source = self.temporary_file("brief.pdf", b"not parsed by the mock", binary=True)
 

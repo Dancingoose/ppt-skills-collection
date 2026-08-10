@@ -4,6 +4,21 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-11 - Structured CSV Material Evidence
+
+- Added CSV inventory metadata for table headers, data-row count, and fully
+  numeric columns while preserving the supplied raw CSV text.
+- Added regression coverage for BOM-safe, quoted CSV parsing and documented
+  that data layouts must cite this table evidence.
+- Reason: merely treating a CSV as a text file loses the table structure that
+  determines whether a chart or data layout is appropriate.
+- Verification: workflow suite has 20 passing tests. A distinct CSV-sourced
+  four-page budget brief preserved seven rows and the complete numeric column,
+  converted a two-page preview before approval, then passed 16 preparation,
+  27 decision, 62 execution, and final delivery checks. All final HTML/PPT
+  comparisons were reviewed without clipping, overlap, blank chart, text loss,
+  or material layout divergence.
+
 ## 2026-08-11 - Enforced Design Preview Evidence
 
 - Added a fail-closed decision gate for `preview.html`: it must contain at

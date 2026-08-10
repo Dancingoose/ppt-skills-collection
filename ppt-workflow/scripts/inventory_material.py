@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Extract supported source material into auditable PPT workflow inventory files."""
 import argparse
+import csv
 import json
 import re
 import zipfile
@@ -14,6 +15,33 @@ IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 
 def plain_text(path: Path):
     return path.read_text(encoding="utf-8", errors="replace"), []
+
+
+def csv_table_refs(path: Path):
+    try:
+        with path.open("r", encoding="utf-8-sig", errors="replace", newline="") as handle:
+            rows = [row for row in csv.reader(handle) if any(cell.strip() for cell in row)]
+    except OSError as exc:
+        return [], [f"CSV extraction failed: {exc}"]
+    if not rows:
+        return [], ["CSV contains no non-empty rows."]
+    header = rows[0]
+    data_rows = rows[1:]
+    numeric_columns = []
+    for index, name in enumerate(header):
+        values = []
+        for row in data_rows:
+            if index >= len(row):
+                continue
+            value = row[index].strip().replace(",", "")
+            try:
+                values.append(float(value))
+            except ValueError:
+                values = []
+                break
+        if values:
+            numeric_columns.append({"name": name, "values": values})
+    return [{"name": path.name, "headers": header, "rowCount": len(data_rows), "numericColumns": numeric_columns}], []
 
 
 def docx_text(path: Path):
@@ -167,6 +195,8 @@ def main():
     args.task.mkdir(parents=True, exist_ok=True)
     text, warnings = extract(args.source)
     suffix = args.source.suffix.lower()
+    table_refs, table_warnings = csv_table_refs(args.source) if suffix == ".csv" else ([], [])
+    warnings.extend(table_warnings)
     image_refs = pptx_image_refs(args.source) if suffix == ".pptx" else (
         standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else (
             pdf_image_refs(args.source, args.task) if suffix == ".pdf" else []
@@ -174,7 +204,7 @@ def main():
     )
     inventory = {
         "source": str(args.source.resolve()), "method": args.method,
-        "format": args.source.suffix.lower(), "text": text, "images": image_refs,
+        "format": args.source.suffix.lower(), "text": text, "images": image_refs, "tables": table_refs,
         "warnings": warnings,
     }
     (args.task / "material-inventory.json").write_text(json.dumps(inventory, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -183,6 +213,11 @@ def main():
         f"- {'Slide ' + str(item['slide']) + ': ' if item.get('slide') else ''}{item['name']} "
         f"({item['description']})" + (f" — {item['source']}" if item.get("source") else "")
         for item in image_refs
+    ) or "- None detected"
+    table_lines = "\n".join(
+        f"- {table['name']}: {table['rowCount']} data rows; headers: {', '.join(table['headers'])}; "
+        f"numeric columns: {', '.join(column['name'] for column in table['numericColumns']) or 'none'}"
+        for table in table_refs
     ) or "- None detected"
     content = f"""# Content Inventory
 
@@ -199,6 +234,9 @@ def main():
 
 ## Image Resources
 {image_lines}
+
+## Structured Tables
+{table_lines}
 
 ## Data Points
 [Extract claims with source URLs or citations before using a data layout.]

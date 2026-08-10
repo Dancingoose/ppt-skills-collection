@@ -35,6 +35,7 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 | .pptx 模板/资料 | `pptx` skill 提取 |
 | 图片/音频/视频 | `vision-qwen` 分析 |
 | 网页 / 公众号文章 URL | `web_fetch` 抓取正文（公众号链接可先转存解析） |
+| .csv | 读取原始文本并登记表头、行数和数值列，数据版式须引用该表格证据 |
 | .epub / .html / .md | 直接读文本内容 |
 | .ipynb / .tex / .rtf 等小众格式 | 需 pandoc 转换（可选依赖） |
 | 用户口述主题 | WebSearch 收集事实/数据/来源 → 写入 content-inventory.md → 推定页数 → 进入第 2 层 |
