@@ -1,5 +1,22 @@
 # Workflow Change Log
 
+## 2026-08-11 - Installed Plugin Forward Test And Legacy Console Compatibility
+
+- Ran a fresh, ephemeral Codex session against the installed
+  `ppt-workflow-studio@personal` plugin. It discovered and used the root
+  workflow plus all four packaged companion skills (`review`, `authoring`,
+  `effects`, and `delivery`) to produce a three-slide municipal rain-garden
+  decision deck from supplied inline material only.
+- Independently reran the authoritative workflow-state gate against the
+  produced artifacts: 131 checks passed, with the source HTML and audited PPTX
+  hashes matching the manifest. The actual 16:9 PPTX contains three slides and
+  50 native text runs; HTML/PPT render comparisons showed no clipping, blank
+  content, or material layout drift.
+- Fixed the historical diagnostic checker for Windows GBK consoles. Its Unicode
+  status glyphs previously raised `UnicodeEncodeError`, even though it is not an
+  authoritative delivery gate. It now configures standard streams as UTF-8 and
+  has a subprocess regression test that forces `PYTHONIOENCODING=gbk`.
+
 ## 2026-08-11 - Review Hash Binding And A4 Print Evidence
 
 - Bound source and delivery review to the actual artifacts. A source review now

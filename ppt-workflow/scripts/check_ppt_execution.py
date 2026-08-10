@@ -333,6 +333,13 @@ def run_layer(layer: str, task_dir: Path, collection_root: Path, html_path: Path
 # ---------------------------------------------------------------------------
 
 def main():
+    # Windows PowerShell can default to GBK, which cannot emit this legacy
+    # checker's status glyphs. Keep diagnostic output usable on all consoles.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
     ap = argparse.ArgumentParser(description="PPT 工作流执行合规检查器")
     ap.add_argument("--layer", required=True, choices=["prep", "decision", "exec", "deliver"],
                     help="检查哪一层")
