@@ -61,10 +61,10 @@
 | G5 逐页增强 | Step6 每页后 | ppt-visual-effects 已加载、每页扫过 | 没加载=违规 |
 | G6 交付前置 | 交付层入口 | convert.py 存在 + .config.local.toml 已配置 | 缺 convert.py 先交HTML；缺 toml 弹首次配置 |
 
-> **代码化自检（替代纯记忆打勾）**：每层自检用检查脚本强制核对，脚本输出 PASS/WARN/FAIL，FAIL 必须修正后重跑。脚本在合集内（`D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py`），installed 缓存不含脚本，用绝对路径调用。
+> **代码化自检（替代纯记忆打勾）**：每层自检读取任务的 `workflow-state.json`，验证非空素材证据、设计护照、逐页布局与增强决策，而非匹配关键词。脚本位置为 `<collection_root>/ppt-workflow/scripts/check_workflow_state.py`；从 `templates/workflow-state.example.json` 创建任务状态文件。
 > ```bash
-> python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer prep|decision|exec|deliver \
->   --task D:/CLAUDEworkspace/work/<任务名> [--html <设计稿.html>]
+> python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep|decision|exec|deliver \
+>   --task <task_dir>
 > ```
 
 ## 四层自检清单速查（完成每层时运行脚本 + 输出打勾结果）

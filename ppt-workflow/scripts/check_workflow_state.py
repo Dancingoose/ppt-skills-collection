@@ -122,6 +122,18 @@ def check_delivery(state, task_dir, v):
     v.require(delivery.get("canvasRasterizationAcknowledged") is True, "rasterization tradeoff is acknowledged")
     missing = [name for name in ("playwright", "pptx", "lxml", "fontTools", "PIL") if importlib.util.find_spec(name) is None]
     v.require(not missing, "converter Python dependencies are importable" + (f": missing {', '.join(missing)}" if missing else ""))
+    if not missing:
+        try:
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch()
+                page = browser.new_page()
+                page.set_content("<main>converter health</main>")
+                healthy = page.locator("main").inner_text() == "converter health"
+                browser.close()
+            v.require(healthy, "Playwright Chromium can render a page")
+        except Exception as exc:
+            v.require(False, f"Playwright Chromium can render a page ({exc})")
     output = delivery.get("output")
     if state.get("task", {}).get("deliveryFormat") == "pptx":
         v.require(isinstance(output, str) and (task_dir / output).is_file(), "requested PPTX output exists")

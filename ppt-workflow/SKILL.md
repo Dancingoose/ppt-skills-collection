@@ -39,9 +39,9 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 | .ipynb / .tex / .rtf 等小众格式 | 需 pandoc 转换（可选依赖） |
 | 用户口述主题 | WebSearch 收集事实/数据/来源 → 写入 content-inventory.md → 推定页数 → 进入第 2 层 |
 
-产出：源内容全文 + 图片资源清单 + 核心信息一句话总结。将产出写入 **`content-inventory.md`**（任务文件夹内：`D:\CLAUDEworkspace\work\<任务名>\`）。
+产出：源内容全文 + 图片资源清单 + 核心信息一句话总结。将产出写入任务文件夹的 **`content-inventory.md`** 和 **`workflow-state.json`**。默认任务目录为 `<workspace_root>/workflow-runs/<任务名>/`；需要跨 session 保留时，改用用户确认的持久目录。
 
-> ⚠️ 如果用户环境中找不到 `D:\CLAUDEworkspace\work\`，任务文件夹默认在当前 session 的输出目录下创建 `outputs/<任务名>/`。**⚠️ 回退到 outputs/ 时必须告知用户：该目录跨 session 可能丢失，content-inventory.md 是 Step 3 内容核实的唯一物理载体，建议把任务文件夹保存到持久位置（如 D:\CLAUDEworkspace\work\）后再继续。** 跨 session 共享时使用绝对路径。
+> ⚠️ 不得假设固定盘符或 session 临时目录。`content-inventory.md` 与 `workflow-state.json` 是跨层物理载体；跨 session 共享时记录并使用绝对路径。`workflow-state.json` 从 `ppt-workflow/templates/workflow-state.example.json` 创建，所有字段必须有真实非空证据。
 
 ### content-inventory.md（准备层输出物，跨层共享）
 
@@ -82,14 +82,14 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 **⛔ 自检方式：运行检查脚本，不要纯靠记忆打勾。**
 
 ```bash
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer prep --task D:/CLAUDEworkspace/work/<任务名>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep --task <task_dir>
 ```
 
-脚本自动核对：content-inventory.md 落盘、核心信息/数据点/页数预判齐全、convert.py 门禁。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入第 2 层；WARN 项需说明核对结论。**
+脚本自动核对结构化素材证据、非空核心结论、可追溯数据点和页数/章节计划。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入第 2 层。**
 
 ```
-[ ] check_ppt_execution.py --layer prep 已运行且全部 PASS（或 WARN 已说明）
-[ ] content-inventory.md 已写入任务文件夹（D:\CLAUDEworkspace\work\<任务名>\ 或已告知用户回退路径风险）
+[ ] check_workflow_state.py --layer prep 已运行且全部 PASS
+[ ] content-inventory.md 和 workflow-state.json 已写入任务文件夹
 [ ] 源素材类型已判定（docx/pdf/pptx/图片/口述）并用了对应 skill
 [ ] 口述主题 → WebSearch 已做，数据点有来源 URL
 [ ] 页数/章节预判已写入
@@ -176,13 +176,13 @@ python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_
 **⛔ 自检方式：运行检查脚本，不要纯靠记忆打勾。**
 
 ```bash
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer decision --task D:/CLAUDEworkspace/work/<任务名>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer decision --task <task_dir>
 ```
 
-脚本自动核对：Phase 1 关键项（受众/画布）、设计护照字段（配色/字体/风格/主题）、反模板审查标记。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入方案预览；WARN 项需说明核对结论。**
+脚本自动核对 Phase 1/2 的非空答案、完整设计护照和有结论的反模板审查。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入方案预览。**
 
 ```
-[ ] check_ppt_execution.py --layer decision 已运行且全部 PASS（或 WARN 已说明）
+[ ] check_workflow_state.py --layer decision 已运行且全部 PASS
 [ ] Phase 1 完成（受众/意图/核心主张/画布）
 [ ] 按场景选了 skill（claude-design / ui-ux-pro-max / mbb-decks / 跳过快速路径）
 [ ] 方向名称用了 10 种设计语言的精确名称（映射表可匹配）
@@ -305,13 +305,13 @@ python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_
 **⛔ 自检方式：运行检查脚本，不要纯靠记忆打勾。**
 
 ```bash
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer exec --task D:/CLAUDEworkspace/work/<任务名> --html <设计稿.html>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer exec --task <task_dir>
 ```
 
-脚本自动核对：布局编号登记（`LAYOUT: X` 注释）、CSS 变量 token 基线、硬编码 hex 泄漏、字体反俗套（Inter/Roboto）、节奏（dark 页）、pointer-events、视觉增强注入、主题方案引用。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入交付层；WARN 项需说明核对结论。**
+脚本自动核对 HTML 页数与清单一致性、每页内嵌布局、内容类型与数据版式匹配、锁定护照、逐页视觉增强决策和页面节奏。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入交付层。**
 
 ```
-[ ] check_ppt_execution.py --layer exec 已运行且全部 PASS（或 WARN 已说明）
+[ ] check_workflow_state.py --layer exec 已运行且全部 PASS
 [ ] quick-reference-card 已读
 [ ] 每页已登记布局编号（HTML 注释 LAYOUT: X）
 [ ] 数据-版式 P0 匹配（有数据用 B6/B7/B20/B21，无数据禁 B6/B7）
@@ -365,13 +365,13 @@ html-to-pptx 首次使用需要确认两条偏好（fonts.auto_install + audit.m
 **⛔ 自检方式：运行检查脚本，不要纯靠记忆打勾。**
 
 ```bash
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer deliver --task D:/CLAUDEworkspace/work/<任务名>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer deliver --task <task_dir>
 ```
 
-脚本自动核对：convert.py 存在、.config.local.toml 配置、交付产物形态、视觉 audit 产物。**任何 FAIL 项必须修正后重跑，全部 PASS 才交付；WARN 项需说明核对结论。**
+脚本自动核对转换依赖导入、Playwright Chromium 实际渲染、交付形态及导出产物。**任何 FAIL 项必须修正后重跑，全部 PASS 才交付。**
 
 ```
-[ ] check_ppt_execution.py --layer deliver 已运行且全部 PASS（或 WARN 已说明）
+[ ] check_workflow_state.py --layer deliver 已运行且全部 PASS
 [ ] convert.py 存在
 [ ] .config.local.toml 已配置（无则弹首次配置）
 [ ] 用户已确认交付形态（HTML / PPTX / 纯PPTX）
@@ -447,15 +447,15 @@ Skill("html-to-pptx")                           # 导出 PPTX（convert.py 已�
 
 ```bash
 # 准备层完成时
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer prep --task D:/CLAUDEworkspace/work/<任务名>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep --task <task_dir>
 # 决策层完成时（方案预览前）
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer decision --task D:/CLAUDEworkspace/work/<任务名>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer decision --task <task_dir>
 # 执行层完成时（展开全量后、交付前）
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer exec --task D:/CLAUDEworkspace/work/<任务名> --html <设计稿.html>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer exec --task <task_dir>
 # 交付层完成时（转换后）
-python D:/CLAUDEworkspace/work/ppt-skills-collection/ppt-workflow/scripts/check_ppt_execution.py --layer deliver --task D:/CLAUDEworkspace/work/<任务名>
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer deliver --task <task_dir>
 ```
 
-脚本输出 PASS/WARN/FAIL。**FAIL 必须修正后重跑直到全 PASS；WARN 需说明核对结论。** 脚本纯标准库实现，无额外依赖。
+脚本输出 PASS/FAIL。**FAIL 必须修正后重跑直到全 PASS。** 它使用任务的 `workflow-state.json` 作为证据；示例见 `ppt-workflow/templates/workflow-state.example.json`。
 
 来源：基于多次迭代试错总结，MIT License

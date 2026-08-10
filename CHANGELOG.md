@@ -25,3 +25,14 @@ and verification so a change can be reverted with Git.
   approved passport.
 - Verification: Python compilation passed; running the validator against a
   task without a state manifest fails with six explicit failures.
+
+## 2026-08-10 - Portable Runtime Gate
+
+- Replaced hard-coded `D:\CLAUDEworkspace` checker commands in the workflow
+  and quick-reference card with `<collection_root>` and `<task_dir>`.
+- Made the structured delivery gate launch Chromium and render a page, rather
+  than treating an importable `playwright` package as proof of conversion
+  readiness.
+- Verification: Python compilation passed. The gate correctly fails while the
+  Playwright Chromium executable is absent, while confirming that the Python
+  conversion dependencies are present in the workspace virtual environment.
