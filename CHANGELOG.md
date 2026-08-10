@@ -4,6 +4,24 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-10 - Standalone Image Material And Image-Hero Evidence
+
+- Added standalone raster-image registration to `inventory_material.py`, with
+  optional dimensions and an explicit requirement for visual review.
+- Registered B22 as a source-backed data layout: it requires a real image and
+  three quantitative facts, matching the layout library instead of treating it
+  as a qualitative page.
+- Changed the unconfigured visual-audit default from `ask` to executable
+  `triage`. The previous default produced the PPTX and only then reported that
+  it should have asked for an audit preference before conversion.
+- Reason: a supplied event poster was not represented in the task inventory,
+  and therefore could have been ignored during composition.
+- Verification: 15 workflow tests and 5 converter tests pass. A four-page
+  poster-only simulation passes 19 preparation, 19 decision, and 58 execution
+  checks; it converts with the local Edge fallback and all four HTML/PPT
+  comparisons were manually reviewed with no clipping, overlap, missing image,
+  or material layout divergence.
+
 ## 2026-08-10 - Browser Runtime Fallback
 
 - Added a shared browser launcher for HTML measurement and delivery health

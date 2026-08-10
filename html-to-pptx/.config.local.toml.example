@@ -20,5 +20,6 @@ default = "clean"
 #   "triage" — 主 agent 自己看 contact sheet 缩略总览分流，再派 sub-agent 看入围页单图，省 token
 #   "page"   — 所有目标页都派 sub-agent 看 slide_NN_compare.png，token 更高但漏检率最低
 #   "manual" — 只生成 audit 物料，交给用户人工核查；用户反馈问题后再修
-#   "ask"    — 每次让 agent 询问（默认；agent 拿到答复后会改写此项）
-mode = "ask"
+#   "ask"    — 每次让 agent 询问（需要显式设置；agent 拿到答复后会改写此项）
+# 首次运行默认 triage，保证审计流程可直接执行。
+mode = "triage"

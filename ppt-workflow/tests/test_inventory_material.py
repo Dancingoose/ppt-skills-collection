@@ -51,6 +51,13 @@ class InventoryMaterialTests(unittest.TestCase):
         self.assertEqual(text, "")
         self.assertEqual(warnings, ["Unsupported source type: .xyz"])
 
+    def test_standalone_image_is_registered_for_visual_review(self):
+        source = self.temporary_file("poster.png", b"not-a-real-image", binary=True)
+        refs = INVENTORY.standalone_image_refs(source)
+        self.assertEqual(refs[0]["name"], "poster.png")
+        self.assertEqual(refs[0]["source"], str(source.resolve()))
+        self.assertIn("inspect visually", refs[0]["description"])
+
 
 if __name__ == "__main__":
     unittest.main()

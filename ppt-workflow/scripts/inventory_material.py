@@ -9,6 +9,7 @@ from xml.etree import ElementTree as ET
 
 
 WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 
 
 def plain_text(path: Path):
@@ -68,6 +69,17 @@ def pptx_image_refs(path: Path):
     return refs
 
 
+def standalone_image_refs(path: Path):
+    description = "Standalone image material; inspect visually before using it as evidence."
+    try:
+        from PIL import Image
+        with Image.open(path) as image:
+            description = f"Standalone image material ({image.width}x{image.height}); inspect visually before using it as evidence."
+    except Exception:
+        pass
+    return [{"name": path.name, "source": str(path.resolve()), "description": description}]
+
+
 def extract(path: Path):
     suffix = path.suffix.lower()
     if suffix in {".txt", ".md", ".html", ".htm", ".csv"}:
@@ -76,6 +88,8 @@ def extract(path: Path):
         return docx_text(path)
     if suffix == ".pptx":
         return pptx_text(path)
+    if suffix in IMAGE_SUFFIXES:
+        return "", []
     return "", [f"Unsupported source type: {suffix or 'no extension'}"]
 
 
@@ -93,7 +107,10 @@ def main():
         raise SystemExit(f"Source file does not exist: {args.source}")
     args.task.mkdir(parents=True, exist_ok=True)
     text, warnings = extract(args.source)
-    image_refs = pptx_image_refs(args.source) if args.source.suffix.lower() == ".pptx" else []
+    suffix = args.source.suffix.lower()
+    image_refs = pptx_image_refs(args.source) if suffix == ".pptx" else (
+        standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else []
+    )
     inventory = {
         "source": str(args.source.resolve()), "method": args.method,
         "format": args.source.suffix.lower(), "text": text, "images": image_refs,
@@ -101,7 +118,10 @@ def main():
     }
     (args.task / "material-inventory.json").write_text(json.dumps(inventory, ensure_ascii=False, indent=2), encoding="utf-8")
     warning_lines = "\n".join(f"- {warning}" for warning in warnings) or "- None"
-    image_lines = "\n".join(f"- Slide {item['slide']}: {item['name']} ({item['description']})" for item in image_refs) or "- None detected"
+    image_lines = "\n".join(
+        f"- {'Slide ' + str(item['slide']) + ': ' if item.get('slide') else ''}{item['name']} ({item['description']})"
+        for item in image_refs
+    ) or "- None detected"
     content = f"""# Content Inventory
 
 ## Source Files

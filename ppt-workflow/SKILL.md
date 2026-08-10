@@ -315,7 +315,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer ex
 [ ] check_workflow_state.py --layer exec 已运行且全部 PASS
 [ ] quick-reference-card 已读
 [ ] 每页已登记布局编号、`layoutEvidence` 和 HTML `data-item-count`
-[ ] 数据-版式 P0 匹配（有数据用 A3/B2/B6/B7/B18/B20/B21，无数据禁这些量化版式）
+[ ] 数据-版式 P0 匹配（有数据用 A3/B2/B6/B7/B18/B20/B21/B22，无数据禁这些量化版式）
 [ ] 事实风(B) 直角无阴影，叙事风(A)/Bento(C) 用圆角
 [ ] --font-display 含 Inter/Roboto 已替换为 Noto Sans SC / Microsoft YaHei
 [ ] 8页+ deck 已画节奏表（先画表再动手）

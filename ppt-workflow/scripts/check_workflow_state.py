@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-DATA_LAYOUTS = {"A3", "B2", "B6", "B7", "B18", "B20", "B21"}
+DATA_LAYOUTS = {"A3", "B2", "B6", "B7", "B18", "B20", "B21", "B22"}
 LAYOUT_RE = re.compile(r"^[ABC](?:[1-9]|1[0-9]|2[0-2])$")
 
 # These constraints come from references/layout-library.md.  The manifest and
@@ -24,6 +24,7 @@ LAYOUT_ITEM_LIMITS = {
     "B18": (3, 3),
     "B19": (4, 4),
     "B20": (4, 6),
+    "B22": (3, 3),
 }
 
 
@@ -141,7 +142,7 @@ def check_execution(state, task_dir, v):
         if content_type == "data":
             v.require(layout in DATA_LAYOUTS, f"slide {slide_id} data uses a data layout")
             v.require(bool(item.get("dataSources")), f"slide {slide_id} data has sources")
-            if layout in {"A3", "B7", "B18", "B20", "B21"}:
+            if layout in {"A3", "B7", "B18", "B20", "B21", "B22"}:
                 numeric_values = evidence.get("numericValues")
                 v.require(isinstance(numeric_values, list) and len(numeric_values) == item_count, f"slide {slide_id} data count matches its numeric evidence")
                 v.require(isinstance(numeric_values, list) and all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in numeric_values), f"slide {slide_id} numeric evidence contains only numbers")

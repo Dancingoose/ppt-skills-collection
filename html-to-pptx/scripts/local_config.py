@@ -24,7 +24,8 @@ LESSONS_TEMPLATE = SKILL_ROOT / "references" / "lessons-learned.md.example"
 _DEFAULTS: dict = {
     "fonts": {"auto_install": "ask"},   # "yes" / "no" / "ask"
     "cleanup": {"default": "clean"},    # "clean" / "keep"
-    "audit": {"mode": "ask"},           # "triage" / "page" / "manual" / "ask"
+    # A real default keeps the visual-audit path executable on first run.
+    "audit": {"mode": "triage"},        # "triage" / "page" / "manual" / "ask"
 }
 
 
@@ -64,7 +65,7 @@ def cleanup_default() -> str:
 
 
 def audit_mode() -> str:
-    mode = str(load().get("audit", {}).get("mode", "ask")).lower().replace("-", "_")
+    mode = str(load().get("audit", {}).get("mode", "triage")).lower().replace("-", "_")
     aliases = {
         "contact": "triage",
         "contact_sheet": "triage",
@@ -75,8 +76,8 @@ def audit_mode() -> str:
     }
     mode = aliases.get(mode, mode)
     if mode not in {"triage", "page", "manual", "ask"}:
-        print(f"[config] audit.mode={mode!r} 无效，回退 ask")
-        return "ask"
+        print(f"[config] audit.mode={mode!r} 无效，回退 triage")
+        return "triage"
     return mode
 
 

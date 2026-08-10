@@ -37,11 +37,11 @@ python <skill_dir>/convert.py <input.html>
 
 ## 首次使用配置
 
-第一次 convert 前需确认两条偏好（通过 AskUserQuestion 弹窗）：
+第一次 convert 前可确认两条偏好（通过 AskUserQuestion 弹窗）：
 1. `fonts.auto_install` — 是否自动安装字体到系统（让 WPS/PowerPoint 正确渲染）
 2. `audit.mode` — 视觉审查模式：`triage`（默认，主 agent 看缩略图分流）/ `page`（全量每页审查）/ `manual`（人工审查）
 
-确认后写入 `<skill_dir>/.config.local.toml`。
+没有本机配置时，审计默认走 `triage`，保证转换后有可执行的审查路径；只在用户明确要逐页或人工审查时写入对应模式。`ask` 是显式选择，不是默认门禁。
 
 ## 覆盖策略
 
