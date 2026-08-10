@@ -67,3 +67,15 @@ and verification so a change can be reverted with Git.
   absent declared effects, and page-count drift.
 - Verification: `python -m unittest discover -s ppt-workflow/tests -v` passed
   all six tests in the workspace virtual environment.
+
+## 2026-08-10 - Material Inventory
+
+- Added `ppt-workflow/scripts/inventory_material.py` for TXT, Markdown, HTML,
+  DOCX, and PPTX source extraction.
+- The script writes both human-readable `content-inventory.md` and structured
+  `material-inventory.json`, including source path, extraction warnings, and
+  per-slide embedded-picture references where present.
+- The Codex entry now treats source material as untrusted data rather than
+  executable instructions.
+- Verification: extracted the 10-slide EV market sample PPTX; recovered its
+  titles, claims, sources, and correctly reported no embedded pictures.
