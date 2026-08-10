@@ -4,6 +4,29 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-11 - Workbook Evidence And Resolved Inventory Gate
+
+- Added `.xlsx` material extraction through declared `openpyxl` support. It
+  preserves each worksheet's text, headers, row count, numeric columns, and
+  formula-cell count; only cached formula results are admitted as numerical
+  evidence, and missing caches are an explicit warning.
+- Made the preparation gate require a physical `content-inventory.md` with
+  resolved core-message, data-point, and page-plan sections. The structured
+  state can no longer pass while its cross-session material snapshot still
+  contains placeholders.
+- Added regression coverage for multi-sheet workbooks, uncalculated formulas,
+  cached formula values, and unresolved inventory placeholders.
+- Reason: common XLSX source material was rejected, and a simulation showed
+  that an otherwise complete state manifest could coexist with a stale,
+  placeholder-only inventory document.
+- Verification: workflow suite has 25 passing tests and converter suite has 5
+  passing tests. A real three-sheet XLSX (Budget, Milestones, Summary) produced
+  an evidence-led five-page `corporate-clean` governance brief. It passed 23
+  preparation, 27 decision, 73 execution, and 127 combined checks, converted
+  through Edge and PowerPoint, and all final HTML/PPT comparisons were reviewed
+  without clipping, overlap, blank chart, text loss, or material-layout
+  divergence.
+
 ## 2026-08-11 - Bounded Web Material Fetch
 
 - Added an HTTP(S)-only URL input path to the material inventory script. It

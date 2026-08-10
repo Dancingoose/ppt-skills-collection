@@ -56,6 +56,18 @@ PREVIEW_HTML = """<!doctype html><html><body>
 <section class='slide' data-slide-id='2'></section>
 </body></html>"""
 
+CONTENT_INVENTORY = """# Content Inventory
+
+## Core Message
+Evidence supports a focused investment.
+
+## Data Points
+- Adoption rose, with a cited source.
+
+## Page and Chapter Plan
+- Two pages: evidence and decision.
+"""
+
 
 class WorkflowStateTests(unittest.TestCase):
     def write_task(self, state=None, html=HTML):
@@ -63,6 +75,7 @@ class WorkflowStateTests(unittest.TestCase):
         task = Path(directory.name)
         if state is not None:
             (task / "workflow-state.json").write_text(json.dumps(state), encoding="utf-8")
+        (task / "content-inventory.md").write_text(CONTENT_INVENTORY, encoding="utf-8")
         (task / "design.html").write_text(html, encoding="utf-8")
         (task / "preview.html").write_text(PREVIEW_HTML, encoding="utf-8")
         self.addCleanup(directory.cleanup)
@@ -91,6 +104,18 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "prep")
         self.assertEqual(result.returncode, 2)
         self.assertIn("prep.coreMessage", result.stdout)
+
+    def test_prep_rejects_unresolved_content_inventory(self):
+        task = self.write_task(valid_state())
+        (task / "content-inventory.md").write_text(
+            "# Content Inventory\n\n## Core Message\n[To be confirmed]\n\n## Data Points\n[TBD]\n\n## Page and Chapter Plan\nTODO\n",
+            encoding="utf-8",
+        )
+        result = self.check(task, "prep")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("content inventory core message is resolved", result.stdout)
+        self.assertIn("content inventory data points is resolved", result.stdout)
+        self.assertIn("content inventory page and chapter plan is resolved", result.stdout)
 
     def test_decision_requires_approved_preview_file(self):
         state = valid_state()

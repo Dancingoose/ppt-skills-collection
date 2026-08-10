@@ -7,6 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from openpyxl import Workbook
+
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "inventory_material.py"
 SPEC = importlib.util.spec_from_file_location("inventory_material", SCRIPT)
@@ -68,6 +70,62 @@ class InventoryMaterialTests(unittest.TestCase):
         self.assertEqual(tables[0]["headers"], ["项目", "金额(元)", "说明"])
         self.assertEqual(tables[0]["rowCount"], 2)
         self.assertEqual(tables[0]["numericColumns"], [{"name": "金额(元)", "values": [2500.0, 4000.0]}])
+
+    def test_xlsx_keeps_each_sheet_and_flags_uncalculated_formulas(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name) / "budget.xlsx"
+        workbook = Workbook()
+        costs = workbook.active
+        costs.title = "Costs"
+        costs.append(["Workstream", "Budget"])
+        costs.append(["Venue", 2500])
+        costs.append(["Production", 4000])
+        summary = workbook.create_sheet("Summary")
+        summary.append(["Metric", "Value"])
+        summary.append(["Total", "=SUM(Costs!B2:B3)"])
+        workbook.save(source)
+        workbook.close()
+
+        text, warnings = INVENTORY.extract(source)
+        tables, table_warnings = INVENTORY.xlsx_table_refs(source)
+
+        self.assertIn("## Worksheet: Costs", text)
+        self.assertIn("Venue\t2500", text)
+        self.assertEqual(warnings, [])
+        self.assertEqual(tables[0]["sheet"], "Costs")
+        self.assertEqual(tables[0]["rowCount"], 2)
+        self.assertEqual(tables[0]["numericColumns"], [{"name": "Budget", "values": [2500.0, 4000.0]}])
+        self.assertEqual(tables[1]["formulaCells"], 1)
+        self.assertIn("without cached results", table_warnings[0])
+
+    def test_xlsx_uses_a_cached_formula_result_as_numeric_evidence(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name) / "cached.xlsx"
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.append(["Metric", "Value"])
+        sheet.append(["Total", "=SUM(2500,4000)"])
+        workbook.save(source)
+        workbook.close()
+
+        with zipfile.ZipFile(source) as archive:
+            members = {info.filename: archive.read(info.filename) for info in archive.infolist()}
+        worksheet = members["xl/worksheets/sheet1.xml"].decode("utf-8")
+        worksheet = worksheet.replace(
+            "<f>SUM(2500,4000)</f><v></v>",
+            "<f>SUM(2500,4000)</f><v>6500</v>",
+        )
+        members["xl/worksheets/sheet1.xml"] = worksheet.encode("utf-8")
+        with zipfile.ZipFile(source, "w") as archive:
+            for name, data in members.items():
+                archive.writestr(name, data)
+
+        tables, warnings = INVENTORY.xlsx_table_refs(source)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(tables[0]["numericColumns"], [{"name": "Value", "values": [6500.0]}])
 
     def test_web_fetch_saves_raw_html_and_strips_script_content(self):
         directory = tempfile.TemporaryDirectory()

@@ -105,6 +105,110 @@ def csv_table_refs(path: Path):
     return [{"name": path.name, "headers": header, "rowCount": len(data_rows), "numericColumns": numeric_columns}], []
 
 
+def xlsx_cell_text(value):
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def xlsx_table_refs(path: Path):
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return [], ["XLSX extraction requires openpyxl; install ppt-workflow/requirements.txt."]
+    try:
+        raw_workbook = load_workbook(path, read_only=True, data_only=False)
+        calculated_workbook = load_workbook(path, read_only=True, data_only=True)
+    except Exception as exc:
+        return [], [f"XLSX extraction failed: {exc}"]
+
+    tables, warnings = [], []
+    missing_formula_results = 0
+    try:
+        for raw_sheet, calculated_sheet in zip(raw_workbook.worksheets, calculated_workbook.worksheets):
+            rows = []
+            formula_cells = 0
+            for raw_row, calculated_row in zip(raw_sheet.iter_rows(), calculated_sheet.iter_rows()):
+                raw_values = [cell.value for cell in raw_row]
+                if not any(value is not None and str(value).strip() for value in raw_values):
+                    continue
+                values = []
+                for raw_cell, calculated_cell in zip(raw_row, calculated_row):
+                    raw_value = raw_cell.value
+                    if isinstance(raw_value, str) and raw_value.startswith("="):
+                        formula_cells += 1
+                        if calculated_cell.value is None:
+                            missing_formula_results += 1
+                            values.append(raw_value)
+                        else:
+                            values.append(calculated_cell.value)
+                    else:
+                        values.append(raw_value)
+                rows.append(values)
+
+            if not rows:
+                warnings.append(f"XLSX worksheet '{raw_sheet.title}' contains no non-empty rows.")
+                continue
+
+            header = [xlsx_cell_text(value) for value in rows[0]]
+            data_rows = rows[1:]
+            numeric_columns = []
+            for index, name in enumerate(header):
+                values = []
+                for row in data_rows:
+                    if index >= len(row):
+                        continue
+                    value = row[index]
+                    if isinstance(value, bool) or not isinstance(value, (int, float)):
+                        values = []
+                        break
+                    values.append(float(value))
+                if values:
+                    numeric_columns.append({"name": name, "values": values})
+            tables.append({
+                "name": f"{path.name}!{raw_sheet.title}",
+                "sheet": raw_sheet.title,
+                "headers": header,
+                "rowCount": len(data_rows),
+                "numericColumns": numeric_columns,
+                "formulaCells": formula_cells,
+            })
+    finally:
+        raw_workbook.close()
+        calculated_workbook.close()
+
+    if missing_formula_results:
+        warnings.append(
+            f"XLSX contains {missing_formula_results} formula cells without cached results; "
+            "recalculate and save it before treating formula results as evidence."
+        )
+    return tables, warnings
+
+
+def xlsx_text(path: Path):
+    try:
+        from openpyxl import load_workbook
+    except ImportError:
+        return "", ["XLSX extraction requires openpyxl; install ppt-workflow/requirements.txt."]
+    try:
+        workbook = load_workbook(path, read_only=True, data_only=False)
+    except Exception as exc:
+        return "", [f"XLSX extraction failed: {exc}"]
+    try:
+        sheets = []
+        for sheet in workbook.worksheets:
+            rows = []
+            for row in sheet.iter_rows(values_only=True):
+                if any(value is not None and str(value).strip() for value in row):
+                    rows.append("\t".join(xlsx_cell_text(value) for value in row))
+            sheets.append(f"## Worksheet: {sheet.title}\n" + ("\n".join(rows) or "[No non-empty cells]"))
+    finally:
+        workbook.close()
+    return "\n\n".join(sheets), []
+
+
 def docx_text(path: Path):
     warnings = []
     try:
@@ -230,6 +334,8 @@ def extract(path: Path):
     suffix = path.suffix.lower()
     if suffix in {".txt", ".md", ".html", ".htm", ".csv"}:
         return plain_text(path)
+    if suffix == ".xlsx":
+        return xlsx_text(path)
     if suffix == ".docx":
         return docx_text(path)
     if suffix == ".pdf":
@@ -265,7 +371,11 @@ def main():
             raise SystemExit(f"Source file does not exist: {args.source}")
         text, warnings = extract(args.source)
         suffix = args.source.suffix.lower()
-        table_refs, table_warnings = csv_table_refs(args.source) if suffix == ".csv" else ([], [])
+        table_refs, table_warnings = (
+            csv_table_refs(args.source) if suffix == ".csv" else
+            xlsx_table_refs(args.source) if suffix == ".xlsx" else
+            ([], [])
+        )
         warnings.extend(table_warnings)
         image_refs = pptx_image_refs(args.source) if suffix == ".pptx" else (
             standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else (

@@ -35,7 +35,7 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 | .pptx 模板/资料 | `pptx` skill 提取 |
 | 图片/音频/视频 | `vision-qwen` 分析 |
 | 网页 / 公众号文章 URL | `inventory_material.py --url` 抓取正文并保存原始 HTML；只接受 HTTP(S)，不自动执行页面内容 |
-| .csv | 读取原始文本并登记表头、行数和数值列，数据版式须引用该表格证据 |
+| .csv / .xlsx | 读取表格原文并登记表名、工作表、表头、行数和数值列；XLSX 公式只有在有缓存结果时才能作为数值证据，数据版式须引用该表格证据 |
 | .epub / .html / .md | 直接读文本内容 |
 | .ipynb / .tex / .rtf 等小众格式 | 需 pandoc 转换（可选依赖） |
 | 用户口述主题 | WebSearch 收集事实/数据/来源 → 写入 content-inventory.md → 推定页数 → 进入第 2 层 |
@@ -86,7 +86,7 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep --task <task_dir>
 ```
 
-脚本自动核对结构化素材证据、非空核心结论、可追溯数据点和页数/章节计划。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入第 2 层。**
+脚本自动核对结构化素材证据、非空核心结论、可追溯数据点和页数/章节计划；`content-inventory.md` 中的核心信息、数据点和页数计划必须已替换占位文本。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入第 2 层。**
 
 ```
 [ ] check_workflow_state.py --layer prep 已运行且全部 PASS

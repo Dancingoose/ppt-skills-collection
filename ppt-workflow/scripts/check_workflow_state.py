@@ -56,7 +56,19 @@ def load_state(task_dir: Path, v: Validator):
     return state
 
 
-def check_prep(state, v):
+def inventory_section(content, heading):
+    match = re.search(rf"(?ms)^## {re.escape(heading)}\s*\n(.*?)(?=^## |\Z)", content)
+    return match.group(1).strip() if match else ""
+
+
+def check_prep(state, task_dir, v):
+    inventory_path = task_dir / "content-inventory.md"
+    v.require(inventory_path.is_file(), "content-inventory.md exists")
+    inventory = inventory_path.read_text(encoding="utf-8", errors="replace") if inventory_path.is_file() else ""
+    for heading in ("Core Message", "Data Points", "Page and Chapter Plan"):
+        section = inventory_section(inventory, heading)
+        unresolved = not section or section.startswith("[") or "[TBD]" in section or "TODO" in section
+        v.require(not unresolved, f"content inventory {heading.lower()} is resolved")
     prep = state.get("prep", {})
     v.value(prep, "sourceType", "prep.sourceType is recorded")
     v.value(prep, "coreMessage", "prep.coreMessage is non-empty")
@@ -231,7 +243,7 @@ def main():
             check(state, args.task, v)
         elif name == "deliver":
             check(state, args.task, v)
-        elif name == "decision":
+        elif name in {"prep", "decision"}:
             check(state, args.task, v)
         else:
             check(state, v)
