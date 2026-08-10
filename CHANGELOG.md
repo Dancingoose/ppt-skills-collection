@@ -13,3 +13,15 @@ and verification so a change can be reverted with Git.
   missing `playwright` module. The original execution checker can also pass
   deliberately incomplete task artifacts.
 
+## 2026-08-10 - Structured Evidence Gate
+
+- Added `ppt-workflow/scripts/check_workflow_state.py`.
+- Added `ppt-workflow/templates/workflow-state.example.json`.
+- Reason: the legacy checker accepted empty fields and unverified HTML
+  comments. The new validator fails closed when structured task evidence is
+  missing, checks non-empty preparation and decision evidence, binds every
+  slide to an embedded layout, validates data-layout compatibility, records a
+  per-slide visual-effect decision, and compares the locked passport with the
+  approved passport.
+- Verification: Python compilation passed; running the validator against a
+  task without a state manifest fails with six explicit failures.

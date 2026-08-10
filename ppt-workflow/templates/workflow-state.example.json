@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "task": {"name": "example", "deliveryFormat": "pptx"},
+  "prep": {
+    "sourceType": "spoken-topic",
+    "coreMessage": "A specific, contestable conclusion.",
+    "pagePlan": {"count": 8, "chapters": ["Context", "Evidence", "Recommendation"]},
+    "dataPoints": [{"claim": "A sourced quantitative claim", "source": "Publisher", "url": "https://example.com"}]
+  },
+  "decision": {
+    "phase1": {"audience": "Leadership", "intent": "Decision", "coreClaim": "A specific conclusion", "canvas": "ppt169"},
+    "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none"},
+    "passport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial"},
+    "antiTemplateReview": {"reviewer": "frontend-design", "result": "pass", "notes": "No default card stack or unsuitable type."}
+  },
+  "execution": {
+    "html": "design.html",
+    "lockedPassport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial"},
+    "slides": [
+      {"id": 1, "layout": "A1", "contentType": "cover", "dark": true, "visualEffect": {"status": "skipped", "reason": "Text-led cover; no effect supports the message."}},
+      {"id": 2, "layout": "B6", "contentType": "data", "dataSources": ["Publisher"], "dark": false, "visualEffect": {"status": "applied", "type": "echarts", "reason": "Trend data benefits from a chart."}}
+    ],
+    "independentReview": {"result": "pass", "notes": "No overlap, overflow, or contrast issue."}
+  },
+  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true}
+}
