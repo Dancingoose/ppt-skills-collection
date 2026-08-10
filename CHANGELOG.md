@@ -89,3 +89,13 @@ and verification so a change can be reverted with Git.
 - Verification: structured preparation, decision, and execution gates passed
   16, 19, and 85 checks respectively. Delivery remains blocked until a
   Playwright Chromium executable is available, as intended.
+
+## 2026-08-10 - Runtime Bootstrap
+
+- Added `html-to-pptx/scripts/bootstrap-runtime.ps1` to create the workspace
+  virtual environment, install conversion dependencies, install Chromium, and
+  launch a real page before declaring the converter ready.
+- The Codex entry now points new machines to this explicit runtime setup.
+- Verification: PowerShell parsing and deployed plugin validation passed. In
+  this environment Chromium download timed out twice without transfer, so the
+  delivery gate remains intentionally failing.
