@@ -20,6 +20,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 from _js_snippets import DECO_HELPERS
+from browser_runtime import launch_browser
 
 VIEWPORT = {"width": 1920, "height": 1080}
 
@@ -1223,14 +1224,22 @@ def _shoot_marker_records(page, records, out_dir: Path):
 def open_deck_page(html_path: Path):
     """打开 deck 的共享 Playwright 会话。
 
-    preflight 与 measure 传同一个 page 复用会话，省一次 Chromium 冷启动 +
-    整页 networkidle 渲染（字体 / 图片 / canvas 全部重载）。"""
+    preflight 与 measure 传同一个 page 复用会话，省一次 Chromium 冷启动。
+    不能等待 networkidle：外部字体、分析脚本或持久 CDN 连接会让可渲染页面
+    无限期停留在网络忙碌状态。"""
     url = Path(html_path).resolve().as_uri()
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser, runtime_name = launch_browser(p)
+        print(f"[browser]  {runtime_name}")
         ctx = browser.new_context(viewport=VIEWPORT, device_scale_factor=1)
         page = ctx.new_page()
-        page.goto(url, wait_until="networkidle")
+        page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+        try:
+            page.wait_for_load_state("load", timeout=15_000)
+        except Exception:
+            print("[browser]  load 状态超时，按已完成的 DOM 继续")
+        # 给图表库和自定义元素一个有限的首帧时间；后续 canvas 稳定性检测仍在 measure()。
+        page.wait_for_timeout(750)
         # custom-element upgrade（<deck-stage> 等）有时还没 settle，多等一拍
         page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
         try:
@@ -1340,6 +1349,24 @@ def measure(html_path: Path, out_json: Path | None = None, *,
         for i in indices:
             page.evaluate(ACTIVATE_JS, i)
             # 等一帧让 .active 类等切换后的 computed style / transform 生效
+            page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
+            # 隐藏 slide 中初始化的图表通常拿到 0x0 尺寸。激活后统一发出
+            # resize / 自定义事件，并补调当前页已注册的 ECharts 实例；不要求
+            # 作者为导出场景写特判，也保留其它库对标准 resize 的兼容性。
+            page.evaluate(r"""(slideIndex) => {
+                const target = document.querySelector('[data-pptx-target]');
+                window.dispatchEvent(new Event('resize'));
+                document.dispatchEvent(new CustomEvent('pptx:slide-activated', {
+                    detail: { slideIndex, slide: target }
+                }));
+                if (!window.echarts || !target) return;
+                for (const element of target.querySelectorAll('*')) {
+                    try {
+                        const chart = window.echarts.getInstanceByDom(element);
+                        if (chart) chart.resize();
+                    } catch (_) { /* A non-ECharts element is expected here. */ }
+                }
+            }""", i)
             page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
 
             # counter 动画稳定性等待：识别 3 种常见 counter 约定（不是全部，足以覆盖绝大多数手写 JS counter）：

@@ -179,23 +179,26 @@ def convert(html_path: Path, out_path: Path, keep_screenshots: bool, embed_fonts
         # Noto Sans/Serif SC（即使 CSS 没显式声明 CJK family，cjk_font 配对也需要）。
         t0 = time.perf_counter()
         font_report = None
-        try:
-            from font_resolver import (collect_requested_fonts, resolve_fonts,
-                                       register_in_font_plan, report_summary)
-            from embed_fonts import bundled_family_names_lower
-            needed = collect_requested_fonts(meas)
-            if _has_cjk_chars(meas):
-                # 兼顾 latin serif → 配 Noto Serif SC，latin sans/mono → 配 Noto Sans SC
-                for fam in ("Noto Sans SC", "Noto Serif SC"):
-                    needed.setdefault(fam, set()).update({(400, False), (700, False)})
-            font_report = resolve_fonts(needed, bundled_family_names_lower())
-            register_in_font_plan(font_report["resolved"])
-            # FONT_PLAN 已被 resolver 填充，让 assemble 的 FONT_FALLBACKS / CJK 缓存看到新条目
-            refresh_font_plan_caches()
-            report_summary(font_report)
-        except Exception as e:
-            print(f"[fonts] auto-resolve 异常（忽略，未解析的字体会回退到 viewer 系统字体）: {e}")
-            traceback.print_exc()
+        if embed_fonts:
+            try:
+                from font_resolver import (collect_requested_fonts, resolve_fonts,
+                                           register_in_font_plan, report_summary)
+                from embed_fonts import bundled_family_names_lower
+                needed = collect_requested_fonts(meas)
+                if _has_cjk_chars(meas):
+                    # 兼顾 latin serif → 配 Noto Serif SC，latin sans/mono → 配 Noto Sans SC
+                    for fam in ("Noto Sans SC", "Noto Serif SC"):
+                        needed.setdefault(fam, set()).update({(400, False), (700, False)})
+                font_report = resolve_fonts(needed, bundled_family_names_lower())
+                register_in_font_plan(font_report["resolved"])
+                # FONT_PLAN 已被 resolver 填充，让 assemble 的 FONT_FALLBACKS / CJK 缓存看到新条目
+                refresh_font_plan_caches()
+                report_summary(font_report)
+            except Exception as e:
+                print(f"[fonts] auto-resolve 异常（忽略，未解析的字体会回退到 viewer 系统字体）: {e}")
+                traceback.print_exc()
+        else:
+            print("[fonts]    skipped because --no-embed-fonts was requested")
         print(f"[fonts]    {time.perf_counter()-t0:.2f}s")
 
         # 1.6) 装到用户字体目录（可选，让 WPS 能正确渲染）

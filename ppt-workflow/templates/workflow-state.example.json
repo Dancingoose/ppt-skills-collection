@@ -22,5 +22,5 @@
     ],
     "independentReview": {"result": "pass", "notes": "No overlap, overflow, or contrast issue."}
   },
-  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true}
+  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true, "output": "example.pptx", "audit": {"result": "pass", "reviewedPages": 2, "notes": "Reviewed HTML/PPT comparisons and resolved all findings."}}
 }

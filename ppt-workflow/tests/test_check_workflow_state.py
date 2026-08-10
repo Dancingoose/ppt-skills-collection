@@ -133,6 +133,19 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("records a layout item count", result.stdout)
 
+    def test_delivery_gate_mentions_compatible_browser_runtime(self):
+        result = self.check(self.write_task(valid_state()), "deliver")
+        self.assertIn("Playwright-compatible browser", result.stdout)
+
+    def test_recorded_pptx_requires_full_audit_evidence(self):
+        state = valid_state()
+        state["delivery"]["output"] = "deck.pptx"
+        task = self.write_task(state)
+        (task / "deck.pptx").write_bytes(b"placeholder")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("delivery audit reviewed every slide", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

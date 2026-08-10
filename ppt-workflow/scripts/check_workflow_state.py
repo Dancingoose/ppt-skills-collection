@@ -179,18 +179,27 @@ def check_delivery(state, task_dir, v):
     if not missing:
         try:
             from playwright.sync_api import sync_playwright
+            runtime_script = Path(__file__).resolve().parents[2] / "html-to-pptx" / "scripts"
+            sys.path.insert(0, str(runtime_script))
+            from browser_runtime import launch_browser
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch()
+                browser, runtime_name = launch_browser(playwright)
                 page = browser.new_page()
                 page.set_content("<main>converter health</main>")
                 healthy = page.locator("main").inner_text() == "converter health"
                 browser.close()
-            v.require(healthy, "Playwright Chromium can render a page")
+            v.require(healthy, f"Playwright-compatible browser can render a page ({runtime_name})")
         except Exception as exc:
-            v.require(False, f"Playwright Chromium can render a page ({exc})")
+            v.require(False, f"Playwright-compatible browser can render a page ({exc})")
     output = delivery.get("output")
-    if state.get("task", {}).get("deliveryFormat") == "pptx":
-        v.require(isinstance(output, str) and (task_dir / output).is_file(), "requested PPTX output exists")
+    requested_pptx = state.get("task", {}).get("deliveryFormat") == "pptx"
+    if requested_pptx or output is not None:
+        v.require(isinstance(output, str) and output.strip() and (task_dir / output).is_file(), "recorded PPTX output exists")
+        audit = delivery.get("audit", {})
+        expected_pages = state.get("execution", {}).get("slides", [])
+        v.require(audit.get("result") in {"pass", "revised"}, "delivery audit has a result")
+        v.require(isinstance(audit.get("reviewedPages"), int) and audit["reviewedPages"] == len(expected_pages), "delivery audit reviewed every slide")
+        v.value(audit, "notes", "delivery audit has notes")
 
 
 def main():

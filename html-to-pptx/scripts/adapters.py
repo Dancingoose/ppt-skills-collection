@@ -87,16 +87,19 @@ DISCOVER_JS = r"""
         group = bestGroup;
     }
 
-    // 探测"自然 display"：找当前可见（display!=none）的 slide 的 display 值
-    // 用于 activate 时覆盖 `display:none` 的隐藏，但保留模板的 flex/grid 等布局
-    let naturalDisplay = 'block';
-    for (const s of group) {
+    // 逐页探测自然 display。不能只拿首张可见页的值：常见 deck 的封面是
+    // flex，而正文页是 block/grid；错误复用会把正文内部的图表挤成 0 宽。
+    // 对被 `.slide:not(.active)` 隐藏的页临时添加 active，只为读取其最终布局。
+    const naturalDisplays = group.map((s) => {
+        const wasActive = s.classList.contains('active');
+        if (!wasActive) s.classList.add('active');
         const d = getComputedStyle(s).display;
-        if (d && d !== 'none') { naturalDisplay = d; break; }
-    }
+        if (!wasActive) s.classList.remove('active');
+        return d && d !== 'none' ? d : 'block';
+    });
 
     window.__pptxSlides = group;
-    window.__pptxNaturalDisplay = naturalDisplay;
+    window.__pptxNaturalDisplays = naturalDisplays;
     return group;
 }
 """
@@ -138,7 +141,7 @@ ACTIVATE_JS = r"""
     const slides = window.__pptxSlides || [];
     if (!slides[idx]) return { error: 'index out of range' };
     const target = slides[idx];
-    const naturalDisplay = window.__pptxNaturalDisplay || 'block';
+    const naturalDisplay = (window.__pptxNaturalDisplays || [])[idx] || 'block';
 
     // Step 1: 还原上一次 activate 留下的标记 / 内联样式
     for (const s of slides) {

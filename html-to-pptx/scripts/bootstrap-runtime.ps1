@@ -18,4 +18,4 @@ if (-not (Test-Path -LiteralPath $python)) {
 & $python -m pip install --upgrade pip
 & $python -m pip install -r $requirements
 & $python -m playwright install chromium
-& $python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(); page=b.new_page(); page.set_content('<main>ok</main>'); assert page.locator('main').inner_text() == 'ok'; b.close(); p.stop(); print('PPT runtime health check passed')"
+& $python -c "import sys; sys.path.insert(0, r'$collectionRoot\html-to-pptx\scripts'); from playwright.sync_api import sync_playwright; from browser_runtime import launch_browser; p=sync_playwright().start(); b,name=launch_browser(p); page=b.new_page(); page.set_content('<main>ok</main>'); assert page.locator('main').inner_text() == 'ok'; b.close(); p.stop(); print(f'PPT runtime health check passed ({name})')"

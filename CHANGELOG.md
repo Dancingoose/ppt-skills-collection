@@ -4,6 +4,32 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-10 - Browser Runtime Fallback
+
+- Added a shared browser launcher for HTML measurement and delivery health
+  checks. It tries Playwright Chromium first, then an explicitly configured
+  `PPT_PLAYWRIGHT_EXECUTABLE`, Microsoft Edge, and Chrome.
+- Reason: the workspace had a healthy local Edge but the workflow hard-coded a
+  separately downloaded Playwright Chromium, leaving a working renderer unused.
+- The converter now also uses bounded page readiness waits instead of
+  unbounded `networkidle`, and skips external font resolution when the user
+  explicitly requests `--no-embed-fonts`.
+- Fixed a conversion audit finding where ECharts initialized inside a hidden
+  slide remained blank after the measurement adapter activated it. The adapter
+  now emits standard resize/activation signals and resizes registered ECharts
+  instances for the active slide.
+- Fixed the root layout cause behind that finding: the adapter had reused the
+  cover page's `display:flex` for every hidden slide. It now detects and
+  restores each slide's own natural display mode before measurement.
+- Delivery validation now requires a registered PPTX to exist and its audit to
+  cover every slide, rather than accepting a converter health flag alone.
+- Verification: the fallback launcher, per-slide display handling, and
+  recorded-delivery audit rules have 4 focused tests; the full workflow suite
+  has 14 tests. Both the 10-page EV deck and 9-page DOCX event deck completed
+  real HTML-to-PPTX conversion with the Edge fallback, PowerPoint rendering,
+  and manual HTML/PPT contact-sheet review. The event simulation exposed and
+  corrected both a blank hidden ECharts chart and a seven-item timeline wrap.
+
 ## 2026-08-10 - Material Inventory Regression Coverage
 
 - Added standard-library tests for Markdown preservation, paragraph-order
