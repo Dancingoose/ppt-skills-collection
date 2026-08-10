@@ -79,3 +79,13 @@ and verification so a change can be reverted with Git.
   executable instructions.
 - Verification: extracted the 10-slide EV market sample PPTX; recovered its
   titles, claims, sources, and correctly reported no embedded pictures.
+
+## 2026-08-10 - Existing Deck Reframe Simulation
+
+- Simulated a 10-page executive market-entry reframe from the extracted EV
+  sample material. The simulation used `mbb-consulting`, varied B1/B3/B4/A2/
+  B7/B13/B11/B9 layouts, preserved source evidence for quantitative claims,
+  and recorded a per-slide effect decision.
+- Verification: structured preparation, decision, and execution gates passed
+  16, 19, and 85 checks respectively. Delivery remains blocked until a
+  Playwright Chromium executable is available, as intended.
