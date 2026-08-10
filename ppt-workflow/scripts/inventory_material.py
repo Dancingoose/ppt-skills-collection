@@ -31,6 +31,29 @@ def docx_text(path: Path):
     return "\n\n".join(paragraphs), warnings
 
 
+def pdf_text(path: Path):
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return "", ["PDF extraction requires pypdf; install ppt-workflow/requirements.txt."]
+    try:
+        reader = PdfReader(path)
+    except Exception as exc:
+        return "", [f"PDF extraction failed: {exc}"]
+    pages = []
+    for index, page in enumerate(reader.pages, 1):
+        try:
+            text = (page.extract_text() or "").strip()
+        except Exception as exc:
+            return "", [f"PDF text extraction failed on page {index}: {exc}"]
+        pages.append(f"## Page {index}\n" + (text or "[No extractable text]"))
+    extracted = "\n\n".join(pages)
+    warnings = []
+    if not any("[No extractable text]" not in page for page in pages):
+        warnings.append("PDF has no extractable text; inspect visually or use OCR before treating it as evidence.")
+    return extracted, warnings
+
+
 def pptx_text(path: Path):
     warnings = []
     try:
@@ -80,12 +103,48 @@ def standalone_image_refs(path: Path):
     return [{"name": path.name, "source": str(path.resolve()), "description": description}]
 
 
+def pdf_image_refs(path: Path, task_dir: Path):
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(path)
+    except Exception:
+        return []
+    output_dir = task_dir / "extracted-images"
+    refs = []
+    for page_index, page in enumerate(reader.pages, 1):
+        for image_index, image in enumerate(page.images, 1):
+            name = Path(image.name).name
+            suffix = Path(name).suffix.lower() or ".bin"
+            output = output_dir / f"page-{page_index:02d}-image-{image_index:02d}{suffix}"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(image.data)
+            description = "Image extracted from PDF; inspect visually before using it as evidence."
+            try:
+                from PIL import Image
+                with Image.open(output) as extracted:
+                    description = (
+                        f"Image extracted from PDF ({extracted.width}x{extracted.height}); "
+                        "inspect visually before using it as evidence."
+                    )
+            except Exception:
+                pass
+            refs.append({
+                "page": page_index,
+                "name": name,
+                "source": str(output.resolve()),
+                "description": description,
+            })
+    return refs
+
+
 def extract(path: Path):
     suffix = path.suffix.lower()
     if suffix in {".txt", ".md", ".html", ".htm", ".csv"}:
         return plain_text(path)
     if suffix == ".docx":
         return docx_text(path)
+    if suffix == ".pdf":
+        return pdf_text(path)
     if suffix == ".pptx":
         return pptx_text(path)
     if suffix in IMAGE_SUFFIXES:
@@ -109,7 +168,9 @@ def main():
     text, warnings = extract(args.source)
     suffix = args.source.suffix.lower()
     image_refs = pptx_image_refs(args.source) if suffix == ".pptx" else (
-        standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else []
+        standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else (
+            pdf_image_refs(args.source, args.task) if suffix == ".pdf" else []
+        )
     )
     inventory = {
         "source": str(args.source.resolve()), "method": args.method,
@@ -119,7 +180,8 @@ def main():
     (args.task / "material-inventory.json").write_text(json.dumps(inventory, ensure_ascii=False, indent=2), encoding="utf-8")
     warning_lines = "\n".join(f"- {warning}" for warning in warnings) or "- None"
     image_lines = "\n".join(
-        f"- {'Slide ' + str(item['slide']) + ': ' if item.get('slide') else ''}{item['name']} ({item['description']})"
+        f"- {'Slide ' + str(item['slide']) + ': ' if item.get('slide') else ''}{item['name']} "
+        f"({item['description']})" + (f" — {item['source']}" if item.get("source") else "")
         for item in image_refs
     ) or "- None detected"
     content = f"""# Content Inventory

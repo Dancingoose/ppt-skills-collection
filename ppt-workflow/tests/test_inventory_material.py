@@ -1,8 +1,11 @@
 import importlib.util
+import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "inventory_material.py"
@@ -57,6 +60,45 @@ class InventoryMaterialTests(unittest.TestCase):
         self.assertEqual(refs[0]["name"], "poster.png")
         self.assertEqual(refs[0]["source"], str(source.resolve()))
         self.assertIn("inspect visually", refs[0]["description"])
+
+    def test_pdf_text_keeps_page_boundaries(self):
+        source = self.temporary_file("brief.pdf", b"not parsed by the mock", binary=True)
+
+        class Reader:
+            pages = [
+                SimpleNamespace(extract_text=lambda: "Cover claim"),
+                SimpleNamespace(extract_text=lambda: "60+ clubs"),
+            ]
+
+        with patch.dict(sys.modules, {"pypdf": SimpleNamespace(PdfReader=lambda _: Reader())}):
+            text, warnings = INVENTORY.extract(source)
+        self.assertEqual(text, "## Page 1\nCover claim\n\n## Page 2\n60+ clubs")
+        self.assertEqual(warnings, [])
+
+    def test_image_only_pdf_requires_visual_or_ocr_review(self):
+        source = self.temporary_file("poster.pdf", b"not parsed by the mock", binary=True)
+
+        class Reader:
+            pages = [SimpleNamespace(extract_text=lambda: "")]
+
+        with patch.dict(sys.modules, {"pypdf": SimpleNamespace(PdfReader=lambda _: Reader())}):
+            text, warnings = INVENTORY.extract(source)
+        self.assertEqual(text, "## Page 1\n[No extractable text]")
+        self.assertIn("inspect visually or use OCR", warnings[0])
+
+    def test_pdf_images_are_written_as_visual_evidence(self):
+        source = self.temporary_file("poster.pdf", b"not parsed by the mock", binary=True)
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+
+        class Reader:
+            pages = [SimpleNamespace(images=[SimpleNamespace(name="poster.png", data=b"image-bytes")])]
+
+        with patch.dict(sys.modules, {"pypdf": SimpleNamespace(PdfReader=lambda _: Reader())}):
+            refs = INVENTORY.pdf_image_refs(source, Path(directory.name))
+        self.assertEqual(refs[0]["page"], 1)
+        self.assertTrue(Path(refs[0]["source"]).is_file())
+        self.assertEqual(Path(refs[0]["source"]).read_bytes(), b"image-bytes")
 
 
 if __name__ == "__main__":

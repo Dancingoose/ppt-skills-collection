@@ -1,8 +1,10 @@
 {
   "name": "ppt-workflow-studio",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260810161113",
   "description": "Reliable evidence-led PPT workflow for Codex.",
-  "author": {"name": "Local developer"},
+  "author": {
+    "name": "Local developer"
+  },
   "skills": "./skills/",
   "interface": {
     "displayName": "PPT Workflow Studio",

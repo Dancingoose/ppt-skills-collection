@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""check_ppt_execution.py — PPT 工作流执行合规检查器
+"""check_ppt_execution.py — legacy advisory checker.
 
-把「靠 agent 自觉打勾」的自检清单，变成「跑脚本拿结果」的强制校验。
+This script remains for historical diagnostics. The authoritative, fail-closed
+workflow gate is check_workflow_state.py; do not use this checker as delivery
+approval evidence.
 在四层各关键节点由 agent 主动调用：`python <合集>/ppt-workflow/scripts/check_ppt_execution.py --layer <layer> --task <任务目录>`。
 
 Layer 参数：

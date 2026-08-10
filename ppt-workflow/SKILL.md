@@ -31,7 +31,7 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 | 源文件类型 | 用哪个 skill / 工具 |
 |-----------|---------------------|
 | .docx 推文/文案 | `docx` skill 提取文字 + 图片 |
-| .pdf 资料 | `pdf-reading` 提取文字 |
+| .pdf 资料 | `inventory_material.py` + `pypdf` 提取逐页文字和内嵌图；扫描件无文本层时用任务目录 `extracted-images/` 做视觉/OCR 审查 |
 | .pptx 模板/资料 | `pptx` skill 提取 |
 | 图片/音频/视频 | `vision-qwen` 分析 |
 | 网页 / 公众号文章 URL | `web_fetch` 抓取正文（公众号链接可先转存解析） |
@@ -90,7 +90,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer pr
 ```
 [ ] check_workflow_state.py --layer prep 已运行且全部 PASS
 [ ] content-inventory.md 和 workflow-state.json 已写入任务文件夹
-[ ] 源素材类型已判定（docx/pdf/pptx/图片/口述）并用了对应 skill
+[ ] 源素材类型已判定（docx/pdf/pptx/图片/口述）并用了对应提取路径；PDF 无文本层已做视觉/OCR 审查
 [ ] 口述主题 → WebSearch 已做，数据点有来源 URL
 [ ] 页数/章节预判已写入
 [ ] convert.py 存在性已检查（提前门禁）

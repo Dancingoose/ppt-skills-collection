@@ -4,6 +4,24 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-11 - PDF Material Extraction And Authoritative Gate Clarification
+
+- Added local, page-indexed PDF text extraction through `pypdf`, including
+  extraction of embedded image assets into the task's `extracted-images/`
+  directory. A scanned PDF without a text layer now has material available for
+  visual review instead of becoming a silent empty source.
+- Added PDF extraction regression tests and declared `pypdf` in the workflow
+  dependency file.
+- Corrected the README to name `check_workflow_state.py` as the authoritative
+  gate. The older `check_ppt_execution.py` remains only as an advisory
+  diagnostic and now says so in its module documentation.
+- Reason: the Codex plugin promised PDF input, while the actual inventory
+  rejected it; the README also pointed new users to a weaker historical gate.
+- Verification: installed `pypdf 6.15.0`; the supplied one-page poster PDF
+  correctly reports its missing text layer and extracts a 3508x4961 PNG to the
+  task directory for visual review. The workflow suite has 18 passing tests
+  and the converter suite has 5 passing tests.
+
 ## 2026-08-10 - Standalone Image Material And Image-Hero Evidence
 
 - Added standalone raster-image registration to `inventory_material.py`, with

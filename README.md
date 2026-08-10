@@ -103,7 +103,8 @@ cp -r /tmp/html-to-pptx-upstream/scripts "D:\CLAUDEworkspace\work\ppt-skills-col
   - `vision-qwen` — 图片/音频/视频分析（来源见下方表格）
   - `pdf-reading` — PDF 内容提取（Anthropic 内置）
 - **AI 配图**（可选，`references/image-generation.md`）: 需要外部生图后端——Codex/Cursor 原生生图工具、`baoyu-image-gen` skill（需单独安装）、Gemini `generate_image`、或 OpenAI 兼容生图 API（如 gpt-image-2）。无可用后端时回退到占位符
-- **执行合规检查**（`ppt-workflow/scripts/check_ppt_execution.py`）: 纯标准库（re/pathlib/argparse），无额外依赖。各层自检由 agent 运行此脚本（见 ppt-workflow SKILL.md 各层自检清单），替代纯记忆打勾。
+- **结构化工作流门禁**（`ppt-workflow/scripts/check_workflow_state.py`）: 以任务的 `workflow-state.json` 为证据，逐层 fail-closed 验证素材、设计决策、版式、数据、效果与交付审计。`check_ppt_execution.py` 仅保留为历史诊断，不可作为交付批准依据。
+- **PDF 素材提取**: `ppt-workflow/requirements.txt` 包含 `pypdf`。带文字层的 PDF 逐页提取；扫描件会明确要求视觉/OCR 审查。
 - **其他 skill**: 无额外依赖，纯指令
 
 ### references/ 资产库清单（共 7 个，随合集整体复制）
