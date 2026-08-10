@@ -4,6 +4,18 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-10 - Material Inventory Regression Coverage
+
+- Added standard-library tests for Markdown preservation, paragraph-order
+  extraction from DOCX OOXML, and explicit unsupported-file reporting in
+  `inventory_material.py`.
+- Reason: a workflow that cannot reliably preserve supplied source material
+  cannot safely infer the creator's intent or choose a presentation layout.
+- Verification: full workflow suite passes 12 tests. A contrasting 9-page
+  DOCX-driven campus-event simulation passes 16 preparation, 19 decision, and
+  120 execution checks; it uses `handdrawn-explainer`, a real Canvas cover
+  effect, and a sourced seven-line ECharts budget chart.
+
 ## 2026-08-10 - Layout-to-Material Evidence Gate
 
 - Added per-slide `layoutEvidence` validation to the structured gate and its
