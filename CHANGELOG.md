@@ -1,5 +1,20 @@
 # Workflow Change Log
 
+## 2026-08-11 - 3:4 Xiaohongshu Image-Led Delivery Evidence
+
+- Independently exercised the previously untested 1242x1660 Xiaohongshu
+  canvas with a three-card, Chinese-language, image-led creator brief. The
+  run used the `xiaohongshu-white` theme and B22/C4/C9 layouts, including an
+  intentional dark process card.
+- Preserved the supplied poster as visible source evidence and retained the
+  qualified `60+` / `30+` claims without turning them into exact attendance,
+  registration, ticketing, or sponsor assertions.
+- Verification: every HTML reference screenshot and PowerPoint render measured
+  1242x1660; the PPTX page size was 7886700x10541000 EMU; PowerPoint
+  self-check reported zero structural warnings; all three side-by-side native
+  comparisons passed visual review. The task passed all 102 structured
+  workflow-state checks after recording source and delivery review evidence.
+
 ## 2026-08-11 - Native Portrait Audit Evidence And Source-Review Gate
 
 - Fixed portrait HTML audit screenshots being clipped to the initial 1920x1080 browser viewport even when the generated PPTX canvas was correct. `measure.py` now sizes the viewport to each activated slide's natural dimensions before capturing reference screenshots and raster media, then reasserts the adapter position after resize listeners run.
