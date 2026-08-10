@@ -210,7 +210,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 分批规则：每次 `AskUserQuestion` ≤ 4 问；Phase 1 优先（受众/意图/核心主张/画布是最重要的四个）；Phase 2 在预览前问。
 
-**Phase 1 材料驱动选项**：有 content-inventory.md 时，Phase 1 的**选项由 agent 读材料后现场生成**（从数据形态/章节骨架/语气立场/图表暗示/受众线索/内容密度 6 类特征推导），每个选项必须能在材料里找到出处；核心主张从材料「核心信息」字段提炼 2-3 个候选 + Other 兜底。无材料（纯口述）时回退到通用骨架。详细推导规则见 `references/material-driven-questioning.md`。
+**Phase 1 材料驱动选项**：有 content-inventory.md 时，Phase 1 的**选项由 agent 读材料后现场生成**（从数据形态/章节骨架/语气立场/图表暗示/受众线索/内容密度 6 类特征推导），每个选项必须能在材料里找到出处；核心主张从材料「核心信息」字段提炼 2-3 个候选 + Other 兜底。无材料（纯口述）时回退到通用骨架。详细推导规则见 `<collection_root>/references/material-driven-questioning.md`。
 
 **Phase 1 尽早问，Phase 2 不浪费**：Phase 1 在 claude-design 出方向**之前**问（让方向建议有受众/意图上下文）；Phase 2 在步骤 1 方案预览**之前**问。两者不合并到一轮里——批次分开才能让中间产物受益。
 
@@ -220,7 +220,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 ### Step 1: 出方案预览（封面 + 1-2 张内容页）
 
-**前置**：先加载 `references/design-system.md` + `references/theme-tokens.md`；3 个候选主题名的来源取决于场景：
+**前置**：先加载 `<collection_root>/references/design-system.md` + `<collection_root>/references/theme-tokens.md`；3 个候选主题名的来源取决于场景：
 - **标准场景**（claude-design 出方向）：claude-design 方向 → theme-tokens.md 映射表 → 3 个候选主题名。**⚠️ claude-design 输出方向时，方向名称必须使用 10 种设计语言的精确名称（如「瑞士编辑式」「包豪斯几何」，见 theme-tokens.md 映射表左列）——不要用近义改写（如"瑞士风格""几何感"），否则映射表无法匹配。**
 - **咨询场景**（mbb-decks）：候选 = `mbb-consulting` + 映射表推荐的 2 个备选（如 corporate-clean）→ 3 个候选
 
@@ -228,7 +228,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 - 三版放同一个 HTML 文件里，tab 或并列展示
 - `ppt169` 使用 1920×1080 canvas，正文 ≥ 24px；非 16:9 画布按
-  `references/canvas-formats.md` 的原生尺寸和字号规则实现
+  `<collection_root>/references/canvas-formats.md` 的原生尺寸和字号规则实现
 - 每版展示：封面 + 1 张典型内容页（如部门总述）
 - 每版附风格描述 + 该主题的 accent hex 色块
 
@@ -252,9 +252,9 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 **生成任何内容页之前，必须加载四个资产库，按核实后的内容形状选版式、按主题方案选 token：**
 
-0. **先读 `references/quick-reference-card.md` 速览**（~50 行精简卡：画布/字号/token/版式P0/节奏/反俗套/增强/交付门禁），再按需跳读下面列出的完整资产库——避免一次性通读全部 5 个资产库（~120KB）的 token 开销
-1. 读 `references/layout-library.md` 的「选版式决策表」（位于 B 系列布局之后）+ `references/design-system.md`
-2. 从数据护照的「主题方案」字段 → 查 `references/theme-tokens.md`，读取完整 `:root` CSS 变量
+0. **先读 `<collection_root>/references/quick-reference-card.md` 速览**（~50 行精简卡：画布/字号/token/版式P0/节奏/反俗套/增强/交付门禁），再按需跳读下面列出的完整资产库——避免一次性通读全部 5 个资产库（~120KB）的 token 开销
+1. 读 `<collection_root>/references/layout-library.md` 的「选版式决策表」（位于 B 系列布局之后）+ `<collection_root>/references/design-system.md`
+2. 从数据护照的「主题方案」字段 → 查 `<collection_root>/references/theme-tokens.md`，读取完整 `:root` CSS 变量
 3. 每页先确定内容形状（数据 or 论断？几项对等？有无时间轴？有无图片？）
 4. 为每页登记一个布局编号（叙事风 A1–A10 / 事实风 B1–B22 / Bento C1–C9），并在 `workflow-state.json` 的 `layoutEvidence` 中记录重复内容数 `itemCount`、对应素材 `sourceRefs`；量化版式还要记录 `numericValues`
 5. 在对应 `.slide` 容器写入相同的 `data-item-count`，使检查器能核对清单与 HTML 是否一致
@@ -271,7 +271,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 - **⛔ 门禁：选定方案后先锁设计护照（见 spec_lock 纪律），再开始展开。展开过程中不漂移。**
 - 每页布局策略必须不同——**严格按 Step 4 登记的布局编号实现**（禁止 4 页全是"左图右文"）
 - 字号、网格、色彩严格来自第 2 层设计决策（设计护照锁定字段）
-- 布局来源：`references/layout-library.md`（41 个布局：A1–A10 叙事风 + B1–B22 事实风 + C1–C9 Bento 网格）
+- 布局来源：`<collection_root>/references/layout-library.md`（41 个布局：A1–A10 叙事风 + B1–B22 事实风 + C1–C9 Bento 网格）
 
 ### Step 6: 逐页注入视觉增强 — `ppt-visual-effects` 强制步骤
 
@@ -306,6 +306,10 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 - 每个注入的增强代码在浏览器可直接运行
 - **独立审查**（吸收自 ppt-agent 的跨模型审查理念）：主 agent 自己检查完排版后，用**独立审查视角**再扫一遍——看缩略图找重叠/溢出/低对比，或派 sub-agent 当"第二双眼睛"。生成者容易"看到自己想看的"，独立审查者能看到真实渲染。
 
+### 源页面视觉审查
+
+在运行执行层检查前，逐页以**原生画布尺寸**查看 HTML，排除重叠、裁切、溢出和对比度问题。将结果写入 `workflow-state.json` 的 `execution.sourceVisualReview`：`result` 为 `pass` 或 `revised`，`reviewedSlides` 必须完整且不重复，`notes` 记录实际审查结论。HTML/PPT 对比图只验证转换忠实度，不能替代这一步。
+
 ### 执行层强制自检清单（Step 4-7 完成后逐项打勾）
 
 **⛔ 自检方式：运行检查脚本，不要纯靠记忆打勾。**
@@ -329,6 +333,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer ex
 [ ] ppt-visual-effects 已加载，每页扫过（含判断"不需要"的页）
 [ ] Canvas/WebGL pointer-events: none
 [ ] 增强代码颜色走 CSS 变量，无硬编码 hex
+[ ] 已逐页审查原生 HTML，并将完整结果写入 execution.sourceVisualReview
 [ ] 独立审查已做（缩略图/溢出/对比）
 ```
 
@@ -399,7 +404,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 - ❌ 渐变背景、accent stripe、圆角卡片 + 左侧彩色 border 组合
 - ❌ 多页内容页用同一种布局策略（左图右文 × 4）
 - ❌ 每页都是白底——用 1-2 种背景色制造节奏
-- ❌ 跳过布局库选版式直接凭感觉排（必须按 `references/layout-library.md` 登记布局编号）
+- ❌ 跳过布局库选版式直接凭感觉排（必须按 `<collection_root>/references/layout-library.md` 登记布局编号）
 - ❌ 数据页编造数字硬塞进无数据版式（B6/B7 禁用于纯概念列举）
 - ❌ 给纯文字排版页硬塞动画/粒子（破坏留白）
 - ❌ 让 Canvas/WebGL 拦截鼠标事件导致无法翻页
@@ -437,12 +442,12 @@ AskUserQuestion Phase 2                                         # 页数/主题�
 Skill("frontend-design")                        # 反模板审查（需 Phase 1/2 结果已填，审查设计护照）
 
 # === 执行层 ===
-Read references/quick-reference-card.md           # 执行前速查卡（精简替代通读全部资产库）
-Read references/canvas-formats.md               # 画布规格 + 非16:9适配规则（非16:9时必读）
-Read references/design-system.md               # token 基线和主题目录
-Read references/theme-tokens.md                 # 选定主题的完整 :root CSS token
-Read references/layout-library.md               # 41 布局选版式（含选版式决策表，选版式时按需跳读）
-Read references/image-generation.md             # 配图流程（按需）
+Read <collection_root>/references/quick-reference-card.md  # 执行前速查卡（精简替代通读全部资产库）
+Read <collection_root>/references/canvas-formats.md        # 画布规格 + 非16:9适配规则（非16:9时必读）
+Read <collection_root>/references/design-system.md         # token 基线和主题目录
+Read <collection_root>/references/theme-tokens.md          # 选定主题的完整 :root CSS token
+Read <collection_root>/references/layout-library.md        # 41 布局选版式（含选版式决策表，选版式时按需跳读）
+Read <collection_root>/references/image-generation.md      # 配图流程（按需）
 Skill("axi-front-design")                       # 预览→展开
 Skill("ppt-visual-effects")                     # 逐页增强（逐页扫描，加载一次即可）
 

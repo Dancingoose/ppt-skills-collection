@@ -12,6 +12,7 @@ Usage:
 """
 import contextlib
 import json
+import math
 import re
 import sys
 import tempfile
@@ -1273,6 +1274,31 @@ def open_deck_page(html_path: Path):
             browser.close()
 
 
+def fit_viewport_to_active_slide(page) -> dict:
+    """Match the browser viewport to the active slide before screenshot capture.
+
+    Element screenshots of a fixed portrait slide can otherwise be clipped by the
+    initial landscape viewport. The target dimensions were captured before the
+    adapter's force-position CSS, so they remain the deck's natural canvas size.
+    """
+    dimensions = page.evaluate("""() => {
+        const target = document.querySelector('[data-pptx-target]');
+        if (!target) return null;
+        const rect = target.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+    }""")
+    if not dimensions or dimensions["width"] <= 0 or dimensions["height"] <= 0:
+        raise ValueError("measure: active slide has no usable dimensions for screenshot capture")
+
+    target_size = {
+        "width": max(1, math.ceil(dimensions["width"])),
+        "height": max(1, math.ceil(dimensions["height"])),
+    }
+    if page.viewport_size != target_size:
+        page.set_viewport_size(target_size)
+    return target_size
+
+
 def measure(html_path: Path, out_json: Path | None = None, *,
             single_index: int | None = None,
             only_indices: set[int] | None = None,
@@ -1375,6 +1401,12 @@ def measure(html_path: Path, out_json: Path | None = None, *,
         for i in indices:
             page.evaluate(ACTIVATE_JS, i)
             # 等一帧让 .active 类等切换后的 computed style / transform 生效
+            page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
+            # Fixed portrait targets can be taller than the initial landscape
+            # viewport. Resize before any reference or media screenshots, then
+            # clear responsive transforms triggered by that resize.
+            fit_viewport_to_active_slide(page)
+            page.evaluate(REASSERT_TARGET_POSITION_JS)
             page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
             # 隐藏 slide 中初始化的图表通常拿到 0x0 尺寸。激活后统一发出
             # resize / 自定义事件，并补调当前页已注册的 ECharts 实例；不要求

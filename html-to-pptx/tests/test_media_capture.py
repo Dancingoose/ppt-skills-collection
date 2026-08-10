@@ -1,8 +1,10 @@
 import importlib.util
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
+from PIL import Image
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
@@ -55,6 +57,58 @@ class CanvasCaptureTests(unittest.TestCase):
         self.assertEqual(restored, {"title": "", "body": ""})
         self.assertIs(MEASURE._MARKER_SHOOT_SPECS["canvas"][2], MEASURE._CANVAS_HIDE_SIBLINGS_JS)
         self.assertIs(MEASURE._MARKER_SHOOT_SPECS["canvas"][3], MEASURE._CANVAS_RESTORE_SIBLINGS_JS)
+
+    def test_portrait_reference_and_canvas_screenshots_use_native_canvas(self):
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            self.skipTest(f"Playwright unavailable: {exc}")
+
+        with sync_playwright() as playwright:
+            try:
+                browser, _ = MEASURE.launch_browser(playwright)
+            except RuntimeError as exc:
+                self.skipTest(str(exc))
+            else:
+                browser.close()
+
+        html = """<!doctype html><style>
+        body { margin: 0; overflow: hidden; }
+        .stage { width: 1080px; height: 1920px; transform-origin: 0 0; }
+        .slide { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+        .slide:not(.active) { display: none !important; }
+        canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+        h1 { position: relative; z-index: 1; margin: 80px; color: white; }
+        </style><div id='stage' class='stage'>
+        <section class='slide active' data-pptx-slide>
+          <canvas data-pptx-canvas-id='portrait-canvas'></canvas><h1>Editable title</h1>
+        </section><section class='slide' data-pptx-slide><h1>Second slide</h1></section>
+        </div><script>
+        const canvas = document.querySelector('canvas');
+        canvas.width = 1080; canvas.height = 1920;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#123456'; context.fillRect(0, 0, 1080, 1920);
+        addEventListener('resize', () => stage.style.transform = 'scale(.5)');
+        </script>"""
+
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            source = directory / "portrait.html"
+            measurements = directory / "measurements.json"
+            source.write_text(html, encoding="utf-8")
+
+            result = MEASURE.measure(source, measurements,
+                                     no_screenshots=False, verbose=False)
+            first_slide = result["slides"][0]
+            canvas_record = next(record for record in first_slide["records"]
+                                 if record.get("kind") == "canvas")
+
+            self.assertEqual((first_slide["slide"]["width"],
+                              first_slide["slide"]["height"]), (1080, 1920))
+            with Image.open(directory / "measurements_screenshots" / "slide_01.png") as image:
+                self.assertEqual(image.size, (1080, 1920))
+            with Image.open(canvas_record["screenshot"]) as image:
+                self.assertEqual(image.size, (1080, 1920))
 
 
 if __name__ == "__main__":

@@ -191,6 +191,13 @@ def check_execution(state, task_dir, v):
     v.require(not any(colors[i] == colors[i + 1] == colors[i + 2] for i in range(max(0, len(colors) - 2))), "no three consecutive slides share a background mode")
     if len(slides) >= 8:
         v.require(any(colors) and not all(colors), "long deck contains both light and dark rhythm pages")
+    source_review = execution.get("sourceVisualReview", {})
+    v.require(source_review.get("result") in {"pass", "revised"}, "source HTML visual review has a result")
+    reviewed_slides = source_review.get("reviewedSlides")
+    v.require(isinstance(reviewed_slides, list) and set(reviewed_slides) == seen_ids
+              and len(reviewed_slides) == len(seen_ids),
+              "source HTML visual review covers every slide exactly once")
+    v.value(source_review, "notes", "source HTML visual review has notes")
     review = execution.get("independentReview", {})
     v.require(review.get("result") in {"pass", "revised"}, "independent execution review has a result")
     v.value(review, "notes", "independent execution review has notes")

@@ -40,6 +40,10 @@ def valid_state():
                  "layoutEvidence": {"itemCount": 1, "sourceRefs": ["Research"], "numericValues": [1]},
                  "visualEffect": {"status": "applied", "type": "echarts", "reason": "Trend chart."}},
             ],
+            "sourceVisualReview": {
+                "result": "pass", "reviewedSlides": [1, 2],
+                "notes": "Reviewed each source slide for overlap, clipping, and contrast.",
+            },
             "independentReview": {"result": "pass", "notes": "No layout defects."},
         },
         "delivery": {"converterHealthChecked": True, "canvasRasterizationAcknowledged": True},
@@ -145,6 +149,14 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "exec")
         self.assertEqual(result.returncode, 2)
         self.assertIn("approved page count", result.stdout)
+
+    def test_execution_requires_a_full_source_visual_review(self):
+        state = valid_state()
+        del state["execution"]["sourceVisualReview"]
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("source HTML visual review has a result", result.stdout)
+        self.assertIn("source HTML visual review covers every slide", result.stdout)
 
     def test_layout_item_count_must_fit_selected_layout(self):
         state = valid_state()

@@ -1,5 +1,13 @@
 # Workflow Change Log
 
+## 2026-08-11 - Native Portrait Audit Evidence And Source-Review Gate
+
+- Fixed portrait HTML audit screenshots being clipped to the initial 1920x1080 browser viewport even when the generated PPTX canvas was correct. `measure.py` now sizes the viewport to each activated slide's natural dimensions before capturing reference screenshots and raster media, then reasserts the adapter position after resize listeners run.
+- Added a Playwright regression test for a responsive 1080x1920 deck with a full-slide Canvas. It verifies measured dimensions, reference screenshots, and Canvas screenshots are all native portrait size.
+- Added a fail-closed `execution.sourceVisualReview` requirement to the workflow-state gate. It must include a pass/revised result, every slide exactly once, and notes, because HTML/PPT comparison validates conversion fidelity but cannot detect a source layout problem shared by both sides.
+- Clarified root-relative reference-library paths in `ppt-workflow/SKILL.md` and corrected the quick-reference Canvas guidance to use the activated slide's native dimensions.
+- Evidence: the four-page Story/9:16 Library Night simulation renders all HTML and PowerPoint pages at 1080x1920 with a 6858000x12192000 EMU PPTX canvas; the full-screen Canvas and ECharts cases were visually reviewed after source-layout revision.
+
 This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
