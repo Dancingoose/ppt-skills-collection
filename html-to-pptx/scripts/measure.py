@@ -1156,11 +1156,36 @@ _SVG_RESTORE_SIBLINGS_JS = r"""() => {
 }"""
 
 
+# Chromium's element screenshots are composited screenshots clipped to the
+# element's bounds. A transparent canvas can therefore include foreground
+# siblings that are subsequently emitted as editable PPT text. Hide those
+# siblings while capturing the canvas so the raster asset contains canvas
+# pixels and its backing surface only.
+_CANVAS_HIDE_SIBLINGS_JS = r"""(marker) => {
+    const canvas = document.querySelector(`[data-pptx-canvas-id='${marker}']`);
+    if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (!parent) return;
+    window.__pptx_canvas_hidden = [];
+    for (const ch of parent.children) {
+        if (ch === canvas) continue;
+        window.__pptx_canvas_hidden.push([ch, ch.style.visibility]);
+        ch.style.visibility = 'hidden';
+    }
+}"""
+
+
+_CANVAS_RESTORE_SIBLINGS_JS = r"""() => {
+    for (const [ch, v] of (window.__pptx_canvas_hidden || [])) ch.style.visibility = v;
+    window.__pptx_canvas_hidden = [];
+}"""
+
+
 # (kind, attr, omit_bg, pre_js, post_js)
 _MARKER_SHOOT_SPECS = {
     "deco_snapshot": ("data-pptx-deco-id", False, _DECO_HIDE_FOREGROUND_JS, _DECO_RESTORE_FOREGROUND_JS),
     "svg":           ("data-pptx-svg-id",  True,  _SVG_HIDE_SIBLINGS_JS,    _SVG_RESTORE_SIBLINGS_JS),
-    "canvas":        ("data-pptx-canvas-id", False, None, None),
+    "canvas":        ("data-pptx-canvas-id", False, _CANVAS_HIDE_SIBLINGS_JS, _CANVAS_RESTORE_SIBLINGS_JS),
     "img":           ("data-pptx-img-id",  True,  None, None),
 }
 
@@ -1169,8 +1194,8 @@ def _shoot_marker_records(page, records, out_dir: Path):
     """统一处理 deco_snapshot / svg / canvas / img 四类 marker 截图。
 
     各类型差异封装在 _MARKER_SHOOT_SPECS：
-    - deco/svg 截图前后需要 JS 隐藏 / 恢复前景或兄弟节点
-    - canvas/img 直接截图，无前后处理
+    - deco/svg/canvas 截图前后需要 JS 隐藏 / 恢复不属于目标媒体的前景
+    - img 直接截图，无前后处理
     截图成功的 record 写入 rec["screenshot"]；失败的 print warning，rec 不变。
     """
     for rec in records:

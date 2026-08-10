@@ -4,6 +4,30 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-11 - Multi-Source Inventory And Canvas Capture Isolation
+
+- Extended the material inventory CLI to accept multiple local files and
+  repeatable HTTP(S) URL inputs in one bounded run. It writes an auditable
+  per-source record, preserves source boundaries in the extracted Markdown,
+  and retains the existing single-source fields for compatibility.
+- Added a Markdown-plus-CSV simulation that uses a Bauhaus decision brief,
+  six distinct layouts, source-to-slide evidence, an ECharts data view, and a
+  Canvas visual effect. It passed all workflow gates after a real PowerPoint
+  render and six-page HTML/PPT visual review.
+- Fixed Canvas media capture: Chromium element screenshots are composited and
+  could include a transparent Canvas's visible sibling text. The converter now
+  hides and restores those direct siblings during capture so text remains one
+  editable PPT object rather than being baked into the Canvas PNG as well.
+- Added regression coverage for multi-source boundaries and Canvas foreground
+  isolation.
+- Reason: a PPT workflow must preserve attribution when several materials are
+  supplied and must not rely on preflight reports that miss an actual rendered
+  duplication defect.
+- Verification: 26 workflow tests, 6 converter tests, and all 139 checks of
+  the mixed-material simulation pass. PowerPoint rendered all six output
+  pages without remaining blank output, duplicate text, clipping, source loss,
+  or material-layout divergence.
+
 ## 2026-08-11 - Workbook Evidence And Resolved Inventory Gate
 
 - Added `.xlsx` material extraction through declared `openpyxl` support. It

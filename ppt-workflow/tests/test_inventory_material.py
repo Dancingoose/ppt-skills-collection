@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -150,6 +152,32 @@ class InventoryMaterialTests(unittest.TestCase):
         text, images, warnings, saved = INVENTORY.fetch_web_material("file:///secret.html", Path(tempfile.gettempdir()))
         self.assertEqual((text, images, saved), ("", [], None))
         self.assertIn("http or https", warnings[0])
+
+    def test_cli_keeps_boundaries_for_multiple_source_files(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        brief = root / "brief.md"
+        budget = root / "budget.csv"
+        task = root / "task"
+        brief.write_text("# Pilot brief\n\nValidate the launch gate.", encoding="utf-8")
+        budget.write_text("Workstream,Amount\nPrototype,35000\nPilot,18000\n", encoding="utf-8")
+
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), str(brief), str(budget), "--task", str(task)],
+            capture_output=True, text=True, check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        inventory = json.loads((task / "material-inventory.json").read_text(encoding="utf-8"))
+        content = (task / "content-inventory.md").read_text(encoding="utf-8")
+        self.assertEqual(inventory["format"], "mixed")
+        self.assertEqual([record["source"] for record in inventory["sources"]], [str(brief.resolve()), str(budget.resolve())])
+        self.assertEqual(inventory["sources"][1]["tables"][0]["numericColumns"], [{"name": "Amount", "values": [35000.0, 18000.0]}])
+        self.assertEqual(inventory["tables"][0]["materialSource"], str(budget.resolve()))
+        self.assertIn(f"## Source 1: {brief.resolve()}", content)
+        self.assertIn(f"## Source 2: {budget.resolve()}", content)
+        self.assertIn(f"source: {budget.resolve()}", content)
 
     def test_pdf_text_keeps_page_boundaries(self):
         source = self.temporary_file("brief.pdf", b"not parsed by the mock", binary=True)

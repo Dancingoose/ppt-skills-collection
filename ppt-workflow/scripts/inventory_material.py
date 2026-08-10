@@ -15,6 +15,7 @@ from xml.etree import ElementTree as ET
 WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 MAX_WEB_BYTES = 5 * 1024 * 1024
+MAX_MATERIAL_SOURCES = 16
 
 
 class WebTextExtractor(HTMLParser):
@@ -43,7 +44,7 @@ class WebTextExtractor(HTMLParser):
         return re.sub(r"\n{3,}", "\n\n", "".join(self.parts)).strip()
 
 
-def fetch_web_material(url: str, task_dir: Path):
+def fetch_web_material(url: str, task_dir: Path, saved_name="source-webpage.html"):
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         return "", [], ["URL source must use an absolute http or https URL."], None
@@ -63,14 +64,14 @@ def fetch_web_material(url: str, task_dir: Path):
         source = raw.decode(charset, errors="replace")
     except LookupError:
         source = raw.decode("utf-8", errors="replace")
-    saved = task_dir / "source-webpage.html"
+    saved = task_dir / saved_name
     saved.write_text(source, encoding="utf-8")
     if content_type == "text/plain":
         return source.strip(), [], [], saved
     parser = WebTextExtractor()
     parser.feed(source)
     text = parser.text()
-    warnings = [] if text else ["URL HTML has no extractable visible text; inspect source-webpage.html manually."]
+    warnings = [] if text else [f"URL HTML has no extractable visible text; inspect {saved.name} manually."]
     return text, [], warnings, saved
 
 
@@ -351,43 +352,95 @@ def markdown_escape(value: str):
     return value.replace("\r\n", "\n").strip()
 
 
+def file_material_record(path: Path, task_dir: Path, method: str):
+    if not path.is_file():
+        return None, [f"Source file does not exist: {path}"]
+    text, warnings = extract(path)
+    suffix = path.suffix.lower()
+    table_refs, table_warnings = (
+        csv_table_refs(path) if suffix == ".csv" else
+        xlsx_table_refs(path) if suffix == ".xlsx" else
+        ([], [])
+    )
+    warnings.extend(table_warnings)
+    image_refs = pptx_image_refs(path) if suffix == ".pptx" else (
+        standalone_image_refs(path) if suffix in IMAGE_SUFFIXES else (
+            pdf_image_refs(path, task_dir) if suffix == ".pdf" else []
+        )
+    )
+    return {
+        "kind": "file", "source": str(path.resolve()), "method": method,
+        "format": suffix, "text": text, "images": image_refs, "tables": table_refs,
+        "warnings": warnings,
+    }, []
+
+
+def url_material_record(url: str, task_dir: Path, index: int, method: str, total_urls: int):
+    saved_name = "source-webpage.html" if total_urls == 1 else f"source-webpage-{index:02d}.html"
+    text, image_refs, warnings, saved_source = fetch_web_material(url, task_dir, saved_name)
+    record_method = f"{method}; URL fetch"
+    if saved_source:
+        record_method += f"; saved {saved_source.name}"
+    return {
+        "kind": "url", "source": url, "method": record_method,
+        "format": ".html", "text": text, "images": image_refs, "tables": [],
+        "warnings": warnings,
+        "savedSource": str(saved_source.resolve()) if saved_source else None,
+    }
+
+
+def aggregate_material_records(records):
+    multiple = len(records) > 1
+    text = "\n\n".join(
+        f"## Source {index}: {record['source']}\n{record['text'] or '[No text could be extracted. Review the original material manually.]'}"
+        for index, record in enumerate(records, 1)
+    ) if multiple else records[0]["text"]
+    images, tables, warnings = [], [], []
+    for record in records:
+        label = record["source"]
+        for item in record["images"]:
+            images.append({**item, "materialSource": label})
+        for item in record["tables"]:
+            tables.append({**item, "materialSource": label})
+        warnings.extend(f"{label}: {warning}" for warning in record["warnings"])
+    if multiple:
+        source, method, source_format = f"{len(records)} supplied sources", "mixed extraction", "mixed"
+    else:
+        source, method, source_format = records[0]["source"], records[0]["method"], records[0]["format"]
+    return {
+        "source": source, "method": method, "format": source_format, "text": text,
+        "images": images, "tables": tables, "warnings": warnings, "sources": records,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Create auditable material inventory for a PPT task")
-    source_group = parser.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("source", nargs="?", type=Path)
-    source_group.add_argument("--url")
+    parser.add_argument("sources", nargs="*", type=Path)
+    parser.add_argument("--url", action="append", default=[])
     parser.add_argument("--task", required=True, type=Path)
     parser.add_argument("--method", default="file extraction")
     args = parser.parse_args()
+    if not args.sources and not args.url:
+        parser.error("provide at least one source file or --url")
+    if len(args.sources) + len(args.url) > MAX_MATERIAL_SOURCES:
+        parser.error(f"at most {MAX_MATERIAL_SOURCES} source files and URLs may be inventoried together")
     args.task.mkdir(parents=True, exist_ok=True)
-    if args.url:
-        text, image_refs, warnings, saved_source = fetch_web_material(args.url, args.task)
-        source_label, source_format, table_refs = args.url, ".html", []
-        method = f"{args.method}; URL fetch"
-        if saved_source:
-            method += f"; saved {saved_source.name}"
-    else:
-        if not args.source.is_file():
-            raise SystemExit(f"Source file does not exist: {args.source}")
-        text, warnings = extract(args.source)
-        suffix = args.source.suffix.lower()
-        table_refs, table_warnings = (
-            csv_table_refs(args.source) if suffix == ".csv" else
-            xlsx_table_refs(args.source) if suffix == ".xlsx" else
-            ([], [])
-        )
-        warnings.extend(table_warnings)
-        image_refs = pptx_image_refs(args.source) if suffix == ".pptx" else (
-            standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else (
-                pdf_image_refs(args.source, args.task) if suffix == ".pdf" else []
-            )
-        )
-        source_label, source_format, method = str(args.source.resolve()), suffix, args.method
-    inventory = {
-        "source": source_label, "method": method,
-        "format": source_format, "text": text, "images": image_refs, "tables": table_refs,
-        "warnings": warnings,
-    }
+    records = []
+    for source in args.sources:
+        record, errors = file_material_record(source, args.task, args.method)
+        if errors:
+            parser.error(errors[0])
+        records.append(record)
+    for index, url in enumerate(args.url, 1):
+        records.append(url_material_record(url, args.task, index, args.method, len(args.url)))
+    inventory = aggregate_material_records(records)
+    source_label, method, text = inventory["source"], inventory["method"], inventory["text"]
+    image_refs, table_refs, warnings = inventory["images"], inventory["tables"], inventory["warnings"]
+    source_lines = "\n".join(
+        f"- {'URL' if record['kind'] == 'url' else 'File'}: {record['source']}\n"
+        f"  - Extraction method: {record['method']}"
+        for record in records
+    )
     (args.task / "material-inventory.json").write_text(json.dumps(inventory, ensure_ascii=False, indent=2), encoding="utf-8")
     warning_lines = "\n".join(f"- {warning}" for warning in warnings) or "- None"
     image_lines = "\n".join(
@@ -398,13 +451,14 @@ def main():
     table_lines = "\n".join(
         f"- {table['name']}: {table['rowCount']} data rows; headers: {', '.join(table['headers'])}; "
         f"numeric columns: {', '.join(column['name'] for column in table['numericColumns']) or 'none'}"
+        + (f"; source: {table['materialSource']}" if table.get('materialSource') else "")
         for table in table_refs
     ) or "- None detected"
     content = f"""# Content Inventory
 
 ## Source Files
-- File: {source_label}
-- Extraction method: {method}
+- {len(records)} source(s) inventoried
+{source_lines}
 - Structured inventory: material-inventory.json
 
 ## Extracted Source Content

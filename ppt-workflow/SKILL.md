@@ -40,6 +40,8 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 | .ipynb / .tex / .rtf 等小众格式 | 需 pandoc 转换（可选依赖） |
 | 用户口述主题 | WebSearch 收集事实/数据/来源 → 写入 content-inventory.md → 推定页数 → 进入第 2 层 |
 
+同一任务可在一次盘点中传入多个本地文件并重复使用 `--url`；清单必须保留每份材料的独立来源、提取方法、文字、表格和警告，不能把它们合并为无来源的摘要。
+
 产出：源内容全文 + 图片资源清单 + 核心信息一句话总结。将产出写入任务文件夹的 **`content-inventory.md`** 和 **`workflow-state.json`**。默认任务目录为 `<workspace_root>/workflow-runs/<任务名>/`；需要跨 session 保留时，改用用户确认的持久目录。
 
 > ⚠️ 不得假设固定盘符或 session 临时目录。`content-inventory.md` 与 `workflow-state.json` 是跨层物理载体；跨 session 共享时记录并使用绝对路径。`workflow-state.json` 从 `ppt-workflow/templates/workflow-state.example.json` 创建，所有字段必须有真实非空证据。
