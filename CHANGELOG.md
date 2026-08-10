@@ -58,3 +58,12 @@ and verification so a change can be reverted with Git.
   manifest, and structured validator as the authoritative workflow.
 - Verification: both the versioned source plugin and deployed plugin passed
   `validate_plugin.py`.
+
+## 2026-08-10 - Workflow Gate Test Suite
+
+- Added standard-library regression tests for the structured workflow gate.
+- The suite covers valid preparation/decision/execution evidence, missing
+  manifests, empty intent evidence, qualitative slides using data layouts,
+  absent declared effects, and page-count drift.
+- Verification: `python -m unittest discover -s ppt-workflow/tests -v` passed
+  all six tests in the workspace virtual environment.
