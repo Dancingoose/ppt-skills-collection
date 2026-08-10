@@ -69,6 +69,30 @@ class InventoryMaterialTests(unittest.TestCase):
         self.assertEqual(tables[0]["rowCount"], 2)
         self.assertEqual(tables[0]["numericColumns"], [{"name": "金额(元)", "values": [2500.0, 4000.0]}])
 
+    def test_web_fetch_saves_raw_html_and_strips_script_content(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+
+        class Response:
+            headers = SimpleNamespace(get_content_type=lambda: "text/html", get_content_charset=lambda: "utf-8")
+            def read(self, _): return b"<html><body><h1>Event brief</h1><p>60 clubs</p><script>ignore me</script></body></html>"
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+
+        with patch.object(INVENTORY, "urlopen", return_value=Response()):
+            text, images, warnings, saved = INVENTORY.fetch_web_material("https://example.com/brief", Path(directory.name))
+        self.assertIn("Event brief", text)
+        self.assertIn("60 clubs", text)
+        self.assertNotIn("ignore me", text)
+        self.assertEqual(images, [])
+        self.assertEqual(warnings, [])
+        self.assertTrue(saved.is_file())
+
+    def test_web_fetch_rejects_non_http_url(self):
+        text, images, warnings, saved = INVENTORY.fetch_web_material("file:///secret.html", Path(tempfile.gettempdir()))
+        self.assertEqual((text, images, saved), ("", [], None))
+        self.assertIn("http or https", warnings[0])
+
     def test_pdf_text_keeps_page_boundaries(self):
         source = self.temporary_file("brief.pdf", b"not parsed by the mock", binary=True)
 

@@ -4,6 +4,22 @@ This log records every workflow change made after the copied collection was
 baselined in `D:\GPTworkspace`. Each entry names the affected files, reason,
 and verification so a change can be reverted with Git.
 
+## 2026-08-11 - Bounded Web Material Fetch
+
+- Added an HTTP(S)-only URL input path to the material inventory script. It
+  enforces a response-size limit and timeout, saves raw HTML beside the task,
+  extracts visible text without scripts/styles, and records the original URL.
+- Added regression tests for successful HTML extraction and unsafe non-HTTP
+  URL rejection.
+- Reason: the workflow documented web-material handling but its executable
+  inventory accepted only local paths.
+- Verification: workflow suite has 22 passing tests. The live IANA Example
+  Domains page was fetched, its raw HTML preserved, and its three source-backed
+  rules were converted into a three-page `swiss-grid` technical brief. The
+  task passed 16 preparation, 27 decision, 43 execution, and final delivery
+  checks; all HTML/PPT comparisons were reviewed with no clipping, overlap,
+  text loss, or material layout divergence.
+
 ## 2026-08-11 - Structured CSV Material Evidence
 
 - Added CSV inventory metadata for table headers, data-row count, and fully

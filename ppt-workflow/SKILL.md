@@ -34,7 +34,7 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 | .pdf 资料 | `inventory_material.py` + `pypdf` 提取逐页文字和内嵌图；扫描件无文本层时用任务目录 `extracted-images/` 做视觉/OCR 审查 |
 | .pptx 模板/资料 | `pptx` skill 提取 |
 | 图片/音频/视频 | `vision-qwen` 分析 |
-| 网页 / 公众号文章 URL | `web_fetch` 抓取正文（公众号链接可先转存解析） |
+| 网页 / 公众号文章 URL | `inventory_material.py --url` 抓取正文并保存原始 HTML；只接受 HTTP(S)，不自动执行页面内容 |
 | .csv | 读取原始文本并登记表头、行数和数值列，数据版式须引用该表格证据 |
 | .epub / .html / .md | 直接读文本内容 |
 | .ipynb / .tex / .rtf 等小众格式 | 需 pandoc 转换（可选依赖） |

@@ -5,12 +5,73 @@ import csv
 import json
 import re
 import zipfile
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 from xml.etree import ElementTree as ET
 
 
 WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
+MAX_WEB_BYTES = 5 * 1024 * 1024
+
+
+class WebTextExtractor(HTMLParser):
+    ignored_tags = {"script", "style", "noscript", "svg"}
+
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self.ignored_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.ignored_tags:
+            self.ignored_depth += 1
+
+    def handle_endtag(self, tag):
+        if tag in self.ignored_tags and self.ignored_depth:
+            self.ignored_depth -= 1
+        if tag in {"p", "div", "section", "article", "li", "h1", "h2", "h3", "br"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if not self.ignored_depth and data.strip():
+            self.parts.append(data.strip() + " ")
+
+    def text(self):
+        return re.sub(r"\n{3,}", "\n\n", "".join(self.parts)).strip()
+
+
+def fetch_web_material(url: str, task_dir: Path):
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return "", [], ["URL source must use an absolute http or https URL."], None
+    try:
+        request = Request(url, headers={"User-Agent": "ppt-workflow-material-inventory/1.0"})
+        with urlopen(request, timeout=20) as response:
+            raw = response.read(MAX_WEB_BYTES + 1)
+            content_type = response.headers.get_content_type()
+            charset = response.headers.get_content_charset() or "utf-8"
+    except Exception as exc:
+        return "", [], [f"URL fetch failed: {exc}"], None
+    if len(raw) > MAX_WEB_BYTES:
+        return "", [], [f"URL response exceeds the {MAX_WEB_BYTES} byte safety limit."], None
+    if content_type not in {"text/html", "application/xhtml+xml", "text/plain"}:
+        return "", [], [f"URL content type is not supported for text extraction: {content_type}."], None
+    try:
+        source = raw.decode(charset, errors="replace")
+    except LookupError:
+        source = raw.decode("utf-8", errors="replace")
+    saved = task_dir / "source-webpage.html"
+    saved.write_text(source, encoding="utf-8")
+    if content_type == "text/plain":
+        return source.strip(), [], [], saved
+    parser = WebTextExtractor()
+    parser.feed(source)
+    text = parser.text()
+    warnings = [] if text else ["URL HTML has no extractable visible text; inspect source-webpage.html manually."]
+    return text, [], warnings, saved
 
 
 def plain_text(path: Path):
@@ -186,25 +247,35 @@ def markdown_escape(value: str):
 
 def main():
     parser = argparse.ArgumentParser(description="Create auditable material inventory for a PPT task")
-    parser.add_argument("source", type=Path)
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("source", nargs="?", type=Path)
+    source_group.add_argument("--url")
     parser.add_argument("--task", required=True, type=Path)
     parser.add_argument("--method", default="file extraction")
     args = parser.parse_args()
-    if not args.source.is_file():
-        raise SystemExit(f"Source file does not exist: {args.source}")
     args.task.mkdir(parents=True, exist_ok=True)
-    text, warnings = extract(args.source)
-    suffix = args.source.suffix.lower()
-    table_refs, table_warnings = csv_table_refs(args.source) if suffix == ".csv" else ([], [])
-    warnings.extend(table_warnings)
-    image_refs = pptx_image_refs(args.source) if suffix == ".pptx" else (
-        standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else (
-            pdf_image_refs(args.source, args.task) if suffix == ".pdf" else []
+    if args.url:
+        text, image_refs, warnings, saved_source = fetch_web_material(args.url, args.task)
+        source_label, source_format, table_refs = args.url, ".html", []
+        method = f"{args.method}; URL fetch"
+        if saved_source:
+            method += f"; saved {saved_source.name}"
+    else:
+        if not args.source.is_file():
+            raise SystemExit(f"Source file does not exist: {args.source}")
+        text, warnings = extract(args.source)
+        suffix = args.source.suffix.lower()
+        table_refs, table_warnings = csv_table_refs(args.source) if suffix == ".csv" else ([], [])
+        warnings.extend(table_warnings)
+        image_refs = pptx_image_refs(args.source) if suffix == ".pptx" else (
+            standalone_image_refs(args.source) if suffix in IMAGE_SUFFIXES else (
+                pdf_image_refs(args.source, args.task) if suffix == ".pdf" else []
+            )
         )
-    )
+        source_label, source_format, method = str(args.source.resolve()), suffix, args.method
     inventory = {
-        "source": str(args.source.resolve()), "method": args.method,
-        "format": args.source.suffix.lower(), "text": text, "images": image_refs, "tables": table_refs,
+        "source": source_label, "method": method,
+        "format": source_format, "text": text, "images": image_refs, "tables": table_refs,
         "warnings": warnings,
     }
     (args.task / "material-inventory.json").write_text(json.dumps(inventory, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -222,8 +293,8 @@ def main():
     content = f"""# Content Inventory
 
 ## Source Files
-- File: {args.source.resolve()}
-- Extraction method: {args.method}
+- File: {source_label}
+- Extraction method: {method}
 - Structured inventory: material-inventory.json
 
 ## Extracted Source Content
