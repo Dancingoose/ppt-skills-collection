@@ -10,7 +10,7 @@
   "decision": {
     "phase1": {"audience": "Leadership", "intent": "Decision", "coreClaim": "A specific conclusion", "canvas": "ppt169"},
     "intentQuestionnaire": {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "skill": "ppt-workflow-intake",
       "completed": false,
       "responses": [
@@ -25,15 +25,16 @@
         {"id": "storyline", "batch": 3, "question": "Which narrative structure should guide the deck?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
         {"id": "contentFocus", "batch": 3, "question": "Which content deserves the strongest emphasis?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
         {"id": "informationDensity", "batch": 3, "question": "What information density should the deck use?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
+        {"id": "designBoldness", "batch": 3, "question": "How bold should the design be, from 1 (conservative) to 5 (experimental)?", "answer": "[TBD]", "level": 0, "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
         {"id": "referenceStyle", "batch": 3, "question": "Which reference style should the deck follow?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"}
       ],
       "batches": [
         {"batch": 1, "questionIds": ["audience", "intent", "coreClaim", "canvas"], "creatorConfirmation": "[TBD: creator response after batch 1]"},
         {"batch": 2, "questionIds": ["language", "expectedOutcome", "useScene", "deliveryUse"], "creatorConfirmation": "[TBD: creator response after batch 2]"},
-        {"batch": 3, "questionIds": ["storyline", "contentFocus", "informationDensity", "referenceStyle"], "creatorConfirmation": "[TBD: creator response after batch 3]"}
+        {"batch": 3, "questionIds": ["storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle"], "creatorConfirmation": "[TBD: creator response after batch 3]"}
       ]
     },
-    "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none"},
+    "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none", "imageSourcingPlan": {"artifact": "image-sourcing-plan.md"}, "designBoldness": {"level": 0, "profile": "[TBD]"}},
     "passport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial", "backgroundStrategy": "rhythmic", "primaryBackgroundMode": "light"},
     "antiTemplateReview": {"reviewer": "ppt-workflow-review", "skill": "ppt-workflow-review", "artifact": "anti-template-review.json", "result": "pass", "notes": "No default card stack or unsuitable type. The artifact records intent, evidence, theme, typography, and layout review."},
     "preview": {"html": "preview.html", "slideIds": [1, 2], "result": "approved", "notes": "The creator approved the cover and representative data page before full expansion."}

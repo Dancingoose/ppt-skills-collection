@@ -59,7 +59,10 @@ def valid_state():
         "decision": {
             "phase1": {"audience": "Leadership", "intent": "Decision", "coreClaim": "Invest", "canvas": "ppt169"},
             "intentQuestionnaire": valid_intent_questionnaire(),
-            "phase2": {"pageCount": 2, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none"},
+            "phase2": {
+                "pageCount": 2, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none",
+                "imageSourcingPlan": {"artifact": "image-sourcing-plan.md"},
+            },
             "passport": passport,
             "antiTemplateReview": {
                 "reviewer": "ppt-workflow-review", "skill": "ppt-workflow-review",
@@ -127,6 +130,12 @@ class WorkflowStateTests(unittest.TestCase):
         (task / "content-inventory.md").write_text(CONTENT_INVENTORY, encoding="utf-8")
         (task / "design.html").write_text(html, encoding="utf-8")
         (task / "preview.html").write_text(PREVIEW_HTML, encoding="utf-8")
+        (task / "image-sourcing-plan.md").write_text(
+            "# Image Sourcing Plan\n\n| Slide | Decision | Reason | Substitute |\n"
+            "|---|---|---|---|\n| 1 | no-image | Text-led cover | Typography |\n"
+            "| 2 | no-image | Data page | Chart |\n",
+            encoding="utf-8",
+        )
         if state is not None:
             source_review = state["execution"].get("sourceVisualReview")
             if isinstance(source_review, dict):
@@ -185,7 +194,28 @@ class WorkflowStateTests(unittest.TestCase):
         del state["decision"]["intentQuestionnaire"]
         result = self.check(self.write_task(state), "intent")
         self.assertEqual(result.returncode, 2)
-        self.assertIn("intent questionnaire has schema version", result.stdout)
+        self.assertIn("intent questionnaire has a supported schema version", result.stdout)
+
+    def test_v2_intake_binds_boldness_to_composition_choices(self):
+        state = valid_state()
+        intake = state["decision"]["intentQuestionnaire"]
+        intake["schemaVersion"] = 2
+        intake["responses"].insert(-1, {
+            "id": "designBoldness", "batch": 3,
+            "question": "How bold should the design be?",
+            "answer": "Bold", "level": 4,
+            "source": "creator-confirmed", "evidence": "Creator reply after batch 3",
+        })
+        intake["batches"][2]["questionIds"] = [
+            "storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle",
+        ]
+        state["decision"]["phase2"]["designBoldness"] = {"level": 4, "profile": "bold"}
+        state["execution"]["slides"][0]["compositionPattern"] = "P10"
+        state["execution"]["slides"][1]["compositionPattern"] = "P03"
+        task = self.write_task(state)
+        for layer in ("intent", "decision", "exec"):
+            result = self.check(task, layer)
+            self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_intent_gate_rejects_fewer_than_twelve_creator_answers(self):
         state = valid_state()
@@ -275,6 +305,11 @@ class WorkflowStateTests(unittest.TestCase):
         state["execution"]["slides"] = state["execution"]["slides"][:1]
         state["execution"]["effectScan"]["reviewedSlides"] = [1]
         task = self.write_task(state)
+        (task / "image-sourcing-plan.md").write_text(
+            "# Image Sourcing Plan\n\n| Slide | Decision | Reason | Substitute |\n"
+            "|---|---|---|---|\n| 1 | no-image | Text-led cover | Typography |\n",
+            encoding="utf-8",
+        )
         (task / "preview.html").write_text(
             "<!doctype html><html><body><section class='slide' data-slide-id='1'></section></body></html>",
             encoding="utf-8",
@@ -289,6 +324,24 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(task, "decision")
         self.assertEqual(result.returncode, 2)
         self.assertIn("anti-template review artifact exists", result.stdout)
+
+    def test_decision_rejects_page_count_that_drifts_from_preparation(self):
+        state = valid_state()
+        state["decision"]["phase2"]["pageCount"] = 3
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("matches the preparation page plan", result.stdout)
+
+    def test_decision_requires_a_complete_image_sourcing_plan(self):
+        state = valid_state()
+        task = self.write_task(state)
+        (task / "image-sourcing-plan.md").write_text(
+            "# Image Sourcing Plan\n\n| Slide | Decision |\n|---|---|\n| 1 | no-image |\n",
+            encoding="utf-8",
+        )
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("covers every approved slide exactly once", result.stdout)
 
     def test_qualitative_slide_cannot_claim_data_layout(self):
         state = valid_state()

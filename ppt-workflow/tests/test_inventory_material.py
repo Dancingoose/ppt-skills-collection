@@ -52,6 +52,31 @@ class InventoryMaterialTests(unittest.TestCase):
         self.assertEqual(text, "Spring fair\n\n60+ clubs")
         self.assertEqual(warnings, [])
 
+    def test_docx_tables_keep_headers_rows_and_numeric_columns(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        source = Path(directory.name) / "route.docx"
+        document = """<?xml version='1.0' encoding='UTF-8'?>
+        <w:document xmlns:w='http://schemas.openxmlformats.org/wordprocessingml/2006/main'>
+          <w:body><w:tbl>
+            <w:tr><w:tc><w:p><w:r><w:t>Day</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Budget</w:t></w:r></w:p></w:tc></w:tr>
+            <w:tr><w:tc><w:p><w:r><w:t>1</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>1150</w:t></w:r></w:p></w:tc></w:tr>
+            <w:tr><w:tc><w:p><w:r><w:t>2</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>2750</w:t></w:r></w:p></w:tc></w:tr>
+          </w:tbl></w:body>
+        </w:document>"""
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.writestr("word/document.xml", document)
+
+        tables, warnings = INVENTORY.docx_table_refs(source)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(tables[0]["headers"], ["Day", "Budget"])
+        self.assertEqual(tables[0]["rowCount"], 2)
+        self.assertEqual(tables[0]["numericColumns"], [
+            {"name": "Day", "values": [1.0, 2.0]},
+            {"name": "Budget", "values": [1150.0, 2750.0]},
+        ])
+
     def test_unsupported_material_fails_explicitly(self):
         source = self.temporary_file("brief.xyz", "opaque")
         text, warnings = INVENTORY.extract(source)

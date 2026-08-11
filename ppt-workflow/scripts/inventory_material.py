@@ -225,6 +225,63 @@ def docx_text(path: Path):
     return "\n\n".join(paragraphs), warnings
 
 
+def docx_cell_text(cell):
+    paragraphs = []
+    for paragraph in cell.iter(f"{WORD_NS}p"):
+        text = "".join(node.text or "" for node in paragraph.iter(f"{WORD_NS}t")).strip()
+        if text:
+            paragraphs.append(text)
+    return " ".join(paragraphs)
+
+
+def docx_number(value):
+    normalized = value.replace(",", "").strip()
+    if re.fullmatch(r"[-+]?\d+(?:\.\d+)?", normalized):
+        return float(normalized)
+    return None
+
+
+def docx_table_refs(path: Path):
+    """Preserve DOCX table structure instead of treating cells as loose prose."""
+    try:
+        with zipfile.ZipFile(path) as archive:
+            root = ET.fromstring(archive.read("word/document.xml"))
+    except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError) as exc:
+        return [], [f"DOCX table extraction failed: {exc}"]
+
+    tables = []
+    for table_index, table in enumerate(root.iter(f"{WORD_NS}tbl"), 1):
+        rows = []
+        for row in table.findall(f"{WORD_NS}tr"):
+            cells = [docx_cell_text(cell) for cell in row.findall(f"{WORD_NS}tc")]
+            if any(cell.strip() for cell in cells):
+                rows.append(cells)
+        if not rows:
+            continue
+        headers, data_rows = rows[0], rows[1:]
+        numeric_columns = []
+        for index, name in enumerate(headers):
+            values = []
+            for row in data_rows:
+                if index >= len(row):
+                    values = []
+                    break
+                value = docx_number(row[index])
+                if value is None:
+                    values = []
+                    break
+                values.append(value)
+            if values:
+                numeric_columns.append({"name": name, "values": values})
+        tables.append({
+            "name": f"{path.name} table {table_index}",
+            "headers": headers,
+            "rowCount": len(data_rows),
+            "numericColumns": numeric_columns,
+        })
+    return tables, []
+
+
 def pdf_text(path: Path):
     try:
         from pypdf import PdfReader
@@ -360,6 +417,7 @@ def file_material_record(path: Path, task_dir: Path, method: str):
     table_refs, table_warnings = (
         csv_table_refs(path) if suffix == ".csv" else
         xlsx_table_refs(path) if suffix == ".xlsx" else
+        docx_table_refs(path) if suffix == ".docx" else
         ([], [])
     )
     warnings.extend(table_warnings)
