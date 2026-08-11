@@ -98,6 +98,26 @@ def valid_state():
     }
 
 
+def valid_v2_state(level=4, profile=None, motion_mode="pptx-static"):
+    state = valid_state()
+    profile = profile or {1: "conservative", 2: "measured", 3: "expressive", 4: "bold", 5: "experimental"}[level]
+    intake = state["decision"]["intentQuestionnaire"]
+    intake["schemaVersion"] = 2
+    intake["responses"].insert(-1, {
+        "id": "designBoldness", "batch": 3,
+        "question": "How bold should the design be?", "answer": f"Level {level}", "level": level,
+        "source": "creator-confirmed", "evidence": "Creator reply after batch 3",
+    })
+    intake["batches"][2]["questionIds"] = [
+        "storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle",
+    ]
+    state["decision"]["phase2"].update({
+        "designBoldness": {"level": level, "profile": profile},
+        "motionDelivery": {"mode": motion_mode, "creatorConfirmed": True, "evidence": "Creator selected the delivery mode."},
+    })
+    return state
+
+
 HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/echarts@5'></script></head><body>
 <section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark'></section>
 <section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1' data-color-system='coastal-light'></section>
@@ -219,6 +239,22 @@ class WorkflowStateTests(unittest.TestCase):
         for layer in ("intent", "decision", "exec"):
             result = self.check(task, layer)
             self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_v2_rejects_a_boldness_profile_that_does_not_match_the_level(self):
+        state = valid_v2_state(level=2, profile="bold")
+        state["execution"]["slides"][0]["compositionPattern"] = "P02"
+        state["execution"]["slides"][1]["compositionPattern"] = "P03"
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("profile exactly matches its selected level", result.stdout)
+
+    def test_v2_rejects_a_composition_above_the_selected_boldness_level(self):
+        state = valid_v2_state(level=2)
+        state["execution"]["slides"][0]["compositionPattern"] = "P02"
+        state["execution"]["slides"][1]["compositionPattern"] = "P06"
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("composition stays within the selected design boldness level", result.stdout)
 
     def test_intent_gate_rejects_fewer_than_twelve_creator_answers(self):
         state = valid_state()
@@ -434,6 +470,24 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(task, "decision")
         self.assertEqual(result.returncode, 2)
         self.assertIn("supplied image exists in the task directory", result.stdout)
+
+    def test_execution_requires_an_approved_image_file_in_layout_evidence(self):
+        state = valid_state()
+        task = self.write_task(state)
+        asset = task / "assets" / "route.jpg"
+        asset.parent.mkdir()
+        asset.write_bytes(b"licensed image")
+        (task / "image-sourcing-plan.md").write_text(
+            "# Image Sourcing Plan\n\n| Slide | Decision |\n|---|---|\n"
+            "| 1 | no-image |\n| 2 | web-search |\n\n"
+            "### Slide 2\n- Candidate URL: https://images.example.com/route.jpg\n"
+            "- License: CC BY 4.0\n- Attribution: Example Photographer\n"
+            "- Local file: assets/route.jpg\n- Approval: creator-approved\n",
+            encoding="utf-8",
+        )
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("layout evidence cites its approved image file", result.stdout)
 
     def test_qualitative_slide_cannot_claim_data_layout(self):
         state = valid_state()

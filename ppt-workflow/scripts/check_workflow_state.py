@@ -12,6 +12,14 @@ DATA_LAYOUTS = {"A3", "B2", "B6", "B7", "B18", "B20", "B21", "B22"}
 LAYOUT_RE = re.compile(r"^[ABC](?:[1-9]|1[0-9]|2[0-2])$")
 COMPOSITION_PATTERNS = {f"P{index:02d}" for index in range(1, 16)}
 BOLD_COMPOSITION_PATTERNS = {"P10", "P11", "P12", "P13", "P14", "P15"}
+BOLDNESS_PROFILES = {
+    1: "conservative",
+    2: "measured",
+    3: "expressive",
+    4: "bold",
+    5: "experimental",
+}
+MAX_COMPOSITION_PATTERN_BY_BOLDNESS = {1: 2, 2: 5, 3: 9, 4: 13, 5: 15}
 
 # These constraints come from references/layout-library.md.  The manifest and
 # the rendered slide must both declare the repeated-item count, so a layout
@@ -135,7 +143,7 @@ def check_image_sourcing_plan(phase2, task_dir, page_count, v):
     artifact_path = task_artifact_path(task_dir, artifact_name)
     v.require(artifact_path is not None and artifact_path.is_file(), "image sourcing plan artifact exists")
     if artifact_path is None or not artifact_path.is_file():
-        return
+        return {}
     content = artifact_path.read_text(encoding="utf-8", errors="replace")
     entries = re.findall(
         r"(?m)^\|\s*(\d+)\s*\|\s*(supplied-image|web-search|no-image)\s*\|", content,
@@ -150,6 +158,7 @@ def check_image_sourcing_plan(phase2, task_dir, page_count, v):
               "image sourcing plan covers every approved slide exactly once")
     v.require(all(decision in {"supplied-image", "web-search", "no-image"} for decision in page_decisions.values()),
               "image sourcing plan uses supported per-slide decisions")
+    asset_paths = {}
     for page, decision in page_decisions.items():
         detail = re.search(rf"(?ms)^###\s*(?:Slide|Page)\s+{page}\b(.*?)(?=^###\s*(?:Slide|Page)\s+\d+\b|\Z)", content)
         detail_text = detail.group(1) if detail else ""
@@ -167,6 +176,7 @@ def check_image_sourcing_plan(phase2, task_dir, page_count, v):
                 local_path = task_artifact_path(task_dir, local_file.group(1))
                 v.require(local_path is not None and local_path.is_file(),
                           f"image sourcing plan slide {page} downloaded web image exists in the task directory")
+                asset_paths[page] = local_file.group(1)
             v.require(bool(re.search(r"(?im)^\s*-\s*Approval:\s*creator-approved\s*$", detail_text)),
                       f"image sourcing plan slide {page} has creator approval for its web image")
         elif decision == "supplied-image":
@@ -177,6 +187,8 @@ def check_image_sourcing_plan(phase2, task_dir, page_count, v):
                 supplied_path = task_artifact_path(task_dir, supplied_file.group(1))
                 v.require(supplied_path is not None and supplied_path.is_file(),
                           f"image sourcing plan slide {page} supplied image exists in the task directory")
+                asset_paths[page] = supplied_file.group(1)
+    return asset_paths
 
 
 def check_prep(state, task_dir, v):
@@ -296,6 +308,8 @@ def check_decision(state, task_dir, v):
         v.require(boldness.get("level") in {1, 2, 3, 4, 5}, "decision design boldness has a level from 1 to 5")
         v.require(boldness.get("profile") in {"conservative", "measured", "expressive", "bold", "experimental"},
                   "decision design boldness has a supported profile")
+        v.require(boldness.get("profile") == BOLDNESS_PROFILES.get(boldness.get("level")),
+                  "decision design boldness profile exactly matches its selected level")
         intake_level = next((item.get("level") for item in intake.get("responses", [])
                              if isinstance(item, dict) and item.get("id") == "designBoldness"), None)
         v.require(boldness.get("level") == intake_level,
@@ -426,6 +440,9 @@ def check_execution(state, task_dir, v):
     planned_count = state.get("prep", {}).get("pagePlan", {}).get("count")
     v.require(len(slides) == planned_count, "execution slide count matches preparation plan")
     intake_schema = state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion")
+    phase2 = state.get("decision", {}).get("phase2", {})
+    image_assets = check_image_sourcing_plan(phase2, task_dir, expected_count, v)
+    boldness_level = phase2.get("designBoldness", {}).get("level")
     composition_patterns = []
     seen_ids = set()
     for item in slides:
@@ -453,6 +470,9 @@ def check_execution(state, task_dir, v):
         v.require(isinstance(item_count, int) and item_count >= 0, f"slide {slide_id} records a layout item count")
         source_refs = evidence.get("sourceRefs")
         v.require(isinstance(source_refs, list) and bool(source_refs) and all(isinstance(ref, str) and ref.strip() for ref in source_refs), f"slide {slide_id} records source references for its layout")
+        if slide_id in image_assets:
+            v.require(isinstance(source_refs, list) and image_assets[slide_id] in source_refs,
+                      f"slide {slide_id} layout evidence cites its approved image file")
         item_count_tag = any(
             re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
             and re.search(rf"data-item-count=[\"']{item_count}[\"']", tag)
@@ -478,6 +498,10 @@ def check_execution(state, task_dir, v):
             v.require(composition in COMPOSITION_PATTERNS,
                       f"slide {slide_id} records a supported composition pattern")
             composition_patterns.append(composition)
+            pattern_number = int(composition[1:]) if isinstance(composition, str) and composition in COMPOSITION_PATTERNS else 99
+            maximum_pattern = MAX_COMPOSITION_PATTERN_BY_BOLDNESS.get(boldness_level, 0)
+            v.require(pattern_number <= maximum_pattern,
+                      f"slide {slide_id} composition stays within the selected design boldness level")
             v.require(composition not in {"P14", "P15"}
                       or state.get("decision", {}).get("phase2", {}).get("motionDelivery", {}).get("mode") == "pptx-plus-live-html",
                       f"slide {slide_id} live composition requires a playable live HTML companion")

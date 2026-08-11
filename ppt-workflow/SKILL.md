@@ -243,7 +243,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 1. 源素材是否足以支撑承诺的页数和要点？不够 → 停下来问用户补素材，或先做事实调研/补资料
 2. 数据页的数字有没有来源？每个数字主张都要能归属（引用来源）
 3. 用户选了「扩展补充」内容处理方式 → 确认扩展的方向和边界，不凭空编造事实
-4. 有缺失的非数据图/截图/Logo → 在选版式前写入 `image-sourcing-plan.md`，从 `ppt-workflow/templates/image-sourcing-plan.example.md` 开始：每一页恰好一个 `supplied-image`、`web-search` 或 `no-image` 决策。`web-search` 必须先向创作者展示候选，核验原始资源页许可与署名要求；只有获得 `creator-approved` 后，才可下载并嵌入。记录候选 URL、许可、署名、本地文件与审批；缺一项即不能交付。若无法取得许可明确且匹配的网络素材，明确登记 `no-image` 并选择无图版式。不得用 AI 生成图或无来源占位图代替。ECharts 数据图表不属于此流程。
+4. 有缺失的非数据图/截图/Logo → 在选版式前写入 `image-sourcing-plan.md`，从 `ppt-workflow/templates/image-sourcing-plan.example.md` 开始：每一页恰好一个 `supplied-image`、`web-search` 或 `no-image` 决策。`web-search` 必须先向创作者展示候选，核验原始资源页许可与署名要求；只有获得 `creator-approved` 后，才可下载并嵌入。记录候选 URL、许可、署名、本地文件与审批；缺一项即不能交付。已批准的本地文件还必须写入该页 `layoutEvidence.sourceRefs`，以证明计划中的素材实际进入了该页。若无法取得许可明确且匹配的网络素材，明确登记 `no-image` 并选择无图版式。不得用 AI 生成图或无来源占位图代替。ECharts 数据图表不属于此流程。
 5. **仅口述主题无源文件 → 先做 WebSearch 收集事实/数据/来源，写入 content-inventory.md**
 
 > 素材不够硬撑 = 返工。先核实再选版式，比选完版式发现缺东西回来改快得多。
@@ -257,7 +257,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 2. 从数据护照的「主题方案」字段 → 查 `<collection_root>/references/theme-tokens.md`，读取完整 `:root` CSS 变量
 3. 每页先确定内容形状（数据 or 论断？几项对等？有无时间轴？有无图片？）
 4. 为每页登记一个布局编号（叙事风 A1–A10 / 事实风 B1–B22 / Bento C1–C9），并在 `workflow-state.json` 的 `layoutEvidence` 中记录重复内容数 `itemCount`、对应素材 `sourceRefs`；量化版式还要记录 `numericValues`
-4.1. 读取 `<collection_root>/references/composition-patterns.md`，再为每页登记一个 `compositionPattern`（P01–P15），让布局标签变成有层级、有焦点的构图。大胆程度为 4 或 5 时，至少 20% 页面使用 P10–P15，且不得连续三页重复同一构图；不允许以增加小线条、小标签或卡片数量冒充大胆设计。
+4.1. 读取 `<collection_root>/references/composition-patterns.md`，再为每页登记一个 `compositionPattern`（P01–P15），让布局标签变成有层级、有焦点的构图。大胆程度必须严格对应 profile：1=conservative、2=measured、3=expressive、4=bold、5=experimental；只可使用本档及以下的构图组（P01–P02 / P01–P05 / P01–P09 / P01–P13 / P01–P15）。大胆程度为 4 或 5 时，至少 20% 页面使用 P10–P15，且不得连续三页重复同一构图；不允许以增加小线条、小标签或卡片数量冒充大胆设计。
 5. 在对应 `.slide` 容器写入相同的 `data-item-count`，并写入 `data-pptx-slide`；后者是转换器唯一可靠的 slide 发现标记，尤其对 900×383 等小尺寸或超宽画布不可省略
 5. **P0 规则：内容数据类型必须匹配版式**——有真实数据用数据版式（B6/B7/B20/B21），无数据禁编造数字硬塞（⚠️ 禁 B6/B7 于纯概念列举）
 6. **P0 规则：token 一致性**——所有颜色/圆角/阴影走 CSS 变量；叙事风（A）可用圆角/阴影，事实风（B）必须直角无阴影（`--radius:0; --shadow:none`）
