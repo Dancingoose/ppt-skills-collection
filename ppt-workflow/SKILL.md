@@ -147,7 +147,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer pr
 
 ## 第 2 层：设计决策层 — 定方向，不定稿
 
-**⚠️ 进入本层前，先做完 Phase 1 沟通契约**（受众/意图/核心主张/画布 4 项最优先）——让 claude-design 的方向建议有上下文。"用户没想法"的场景，claude-design 需要知道"这是给谁看、要达到什么目的"才能建分歧化方向。Phase 1 是设计决策层的**前置门禁**，不走完不进入。
+**⚠️ 进入本层前，必须完成 12 项意图采集的 3 轮创作者确认**。第一批是受众/意图/核心主张/画布；第二批是语言/期望结果/使用场景/交付用途；第三批是故事线/内容侧重点/信息密度/参考风格。材料只可生成推荐选项，不能代替创作者作答；不得推断、假设或自动填充。将每项问题、回答、`creator-confirmed` 来源和创作者回复证据写入 `decision.intentQuestionnaire`，运行 `check_workflow_state.py --layer intent` 全部 PASS 后，才能加载设计 skill、生成预览或展开页面。
 
 按场景判断用哪个：
 

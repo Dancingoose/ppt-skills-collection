@@ -28,6 +28,15 @@ LAYOUT_ITEM_LIMITS = {
     "B22": (3, 3),
 }
 
+# Material may inform recommendations, but it cannot substitute for the
+# creator's explicit choices.
+INTENT_QUESTIONS = (
+    ("audience", 1), ("intent", 1), ("coreClaim", 1), ("canvas", 1),
+    ("language", 2), ("expectedOutcome", 2), ("useScene", 2), ("deliveryUse", 2),
+    ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3), ("referenceStyle", 3),
+)
+INTENT_QUESTION_BATCH = dict(INTENT_QUESTIONS)
+
 
 class Validator:
     def __init__(self):
@@ -121,7 +130,76 @@ def check_prep(state, task_dir, v):
         v.require(bool(point.get("url")) or bool(point.get("citation")), f"data point {index} has a URL or citation")
 
 
+def check_intent(state, task_dir, v):
+    decision = state.get("decision", {})
+    intake = decision.get("intentQuestionnaire", {})
+    v.require("intentQuestionnaire" in decision and isinstance(intake, dict), "intent questionnaire is recorded")
+    if not isinstance(intake, dict):
+        return
+    v.require(intake.get("schemaVersion") == 1, "intent questionnaire has schema version")
+    v.require(intake.get("skill") == "ppt-workflow-intake", "intent questionnaire uses the packaged intake skill")
+    v.require(intake.get("completed") is True, "intent questionnaire is marked complete")
+
+    responses = intake.get("responses")
+    v.require(isinstance(responses, list) and len(responses) == len(INTENT_QUESTIONS),
+              "intent questionnaire records exactly 12 responses")
+    seen_ids = set()
+    if isinstance(responses, list):
+        for response in responses:
+            response = response if isinstance(response, dict) else {}
+            question_id = response.get("id")
+            v.require(question_id in INTENT_QUESTION_BATCH and question_id not in seen_ids,
+                      f"intent response {question_id!r} has a unique required question id")
+            if question_id in INTENT_QUESTION_BATCH:
+                seen_ids.add(question_id)
+                v.require(response.get("batch") == INTENT_QUESTION_BATCH[question_id],
+                          f"intent response {question_id} is in its required batch")
+            v.value(response, "question", f"intent response {question_id!r} records the question")
+            v.value(response, "answer", f"intent response {question_id!r} has a creator-confirmed answer")
+            v.require(response.get("source") == "creator-confirmed",
+                      f"intent response {question_id!r} is creator-confirmed, not inferred")
+            v.value(response, "evidence", f"intent response {question_id!r} records creator confirmation evidence")
+        v.require([response.get("id") if isinstance(response, dict) else None for response in responses]
+                  == [question_id for question_id, _ in INTENT_QUESTIONS],
+                  "intent responses follow the required three-batch question order")
+        answers_by_id = {
+            response.get("id"): response.get("answer", "").strip()
+            for response in responses if isinstance(response, dict) and isinstance(response.get("answer"), str)
+        }
+        phase1 = decision.get("phase1", {})
+        phase1 = phase1 if isinstance(phase1, dict) else {}
+        for question_id in ("audience", "intent", "coreClaim", "canvas"):
+            v.require(phase1.get(question_id, "").strip() == answers_by_id.get(question_id),
+                      f"decision.phase1.{question_id} exactly matches the creator-confirmed intake answer")
+    v.require(seen_ids == set(INTENT_QUESTION_BATCH), "intent questionnaire includes every required question exactly once")
+
+    batches = intake.get("batches")
+    v.require(isinstance(batches, list) and len(batches) == 3,
+              "intent questionnaire records all three question batches")
+    expected_by_batch = {
+        batch: [question_id for question_id, expected_batch in INTENT_QUESTIONS if expected_batch == batch]
+        for batch in (1, 2, 3)
+    }
+    seen_batches = set()
+    if isinstance(batches, list):
+        for batch_record in batches:
+            batch_record = batch_record if isinstance(batch_record, dict) else {}
+            batch = batch_record.get("batch")
+            v.require(batch in expected_by_batch and batch not in seen_batches,
+                      f"intent batch {batch!r} is uniquely recorded")
+            if batch in expected_by_batch:
+                seen_batches.add(batch)
+                v.require(batch_record.get("questionIds") == expected_by_batch[batch],
+                          f"intent batch {batch} contains its required four questions in order")
+            v.value(batch_record, "creatorConfirmation",
+                    f"intent batch {batch!r} records the creator's response evidence")
+        v.require([batch_record.get("batch") if isinstance(batch_record, dict) else None for batch_record in batches] == [1, 2, 3],
+                  "intent batches are recorded in creator-response order")
+    v.require(seen_batches == {1, 2, 3}, "intent questionnaire records batches 1, 2, and 3")
+
+
 def check_decision(state, task_dir, v):
+    check_intent(state, task_dir, v)
     decision = state.get("decision", {})
     phase1 = decision.get("phase1", {})
     for key in ("audience", "intent", "coreClaim", "canvas"):
@@ -163,6 +241,7 @@ def slide_count(html: str):
 
 
 def check_execution(state, task_dir, v):
+    check_intent(state, task_dir, v)
     execution = state.get("execution", {})
     passport = state.get("decision", {}).get("passport", {})
     v.require(execution.get("lockedPassport") == passport and bool(passport), "locked passport exactly matches decision passport")
@@ -280,6 +359,7 @@ def check_execution(state, task_dir, v):
 
 
 def check_delivery(state, task_dir, v):
+    check_intent(state, task_dir, v)
     delivery = state.get("delivery", {})
     v.require(delivery.get("converterHealthChecked") is True, "converter health check is recorded")
     v.require(delivery.get("canvasRasterizationAcknowledged") is True, "rasterization tradeoff is acknowledged")
@@ -317,22 +397,22 @@ def check_delivery(state, task_dir, v):
 def main():
     parser = argparse.ArgumentParser(description="Validate structured PPT workflow evidence")
     parser.add_argument("--task", required=True, type=Path)
-    parser.add_argument("--layer", required=True, choices=("prep", "decision", "exec", "deliver", "all"))
+    parser.add_argument("--layer", required=True, choices=("prep", "intent", "decision", "exec", "deliver", "all"))
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     v = Validator()
     state = load_state(args.task, v)
-    checks = {"prep": check_prep, "decision": check_decision, "exec": check_execution, "deliver": check_delivery}
+    checks = {"prep": check_prep, "intent": check_intent, "decision": check_decision, "exec": check_execution, "deliver": check_delivery}
     selected = checks if args.layer == "all" else {args.layer: checks[args.layer]}
     for name, check in selected.items():
         if name == "exec":
             check(state, args.task, v)
         elif name == "deliver":
             check(state, args.task, v)
-        elif name in {"prep", "decision"}:
+        elif name in {"prep", "decision", "intent"}:
             check(state, args.task, v)
         else:
-            check(state, v)
+            check(state, args.task, v)
     for message in v.passes:
         print(f"[PASS] {message}")
     for message in v.failures:

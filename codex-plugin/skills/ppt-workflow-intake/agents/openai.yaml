@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Intent Intake"
+  short_description: "Collect 12 creator-confirmed PPT decisions."
+  default_prompt: "Use $ppt-workflow-intake to collect my PPT intent before designing it."

@@ -1,5 +1,13 @@
 # Workflow Change Log
 
+## 2026-08-11 - Fail-Closed Creator Intent Intake
+
+- Added the `ppt-workflow-intake` Codex skill. It collects all 12 intent questions in three batches and waits for the creator's response after each batch.
+- Added file-backed `decision.intentQuestionnaire` validation. Every required answer must be unique, in its prescribed batch, non-empty, explicitly `creator-confirmed`, and linked to creator-response evidence; each of the three batches requires its own confirmation record.
+- Added the `intent` validation layer and made the decision, execution, and delivery gates repeat it. A preview, deck expansion, or conversion cannot pass based on model-inferred intent.
+- Replaced the historical skip rule with confirmation-only handling: even a value already stated by the creator or suggested by material is asked and recorded in its assigned batch.
+- Reason: an earlier document-driven run skipped the documented intake and allowed the model to infer creator choices from supplied material.
+
 ## 2026-08-11 - Installed Plugin Forward Test And Legacy Console Compatibility
 
 - Ran a fresh, ephemeral Codex session against the installed

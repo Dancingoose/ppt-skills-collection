@@ -54,7 +54,7 @@
 ## 执行门禁速查（6 个 Gate，不可跳过）
 | Gate | 位置 | 检查 | 不过的处理 |
 |------|------|------|-----------|
-| G1 Phase1 前置 | 决策层入口 | AskUserQuestion 完成（受众/意图/主张/画布） | 先问用户再加载 claude-design |
+| G1 意图采集 | 决策层入口 | 12 项问题按 3 批完成；每项均有创作者确认来源；`check --layer intent` PASS | 停止，不做设计方向、预览或扩展 |
 | G2 方案预览 | Step2 展开前 | 设计护照已锁定 + 已有预览HTML | 回到 Step 1 出预览 |
 | G3 内容核实 | Step3 选版式前 | content-inventory.md 存在且支撑页数、数据有来源 | 停下列清单问用户补素材/做调研 |
 | G4 布局登记 | Step4 生成页面前 | 每页登记布局编号（HTML 注释 `LAYOUT: X`）+ P0 数据匹配 | 没登记=违规，回 Step 4 |
@@ -64,12 +64,13 @@
 
 > **代码化自检（替代纯记忆打勾）**：每层自检读取任务的 `workflow-state.json`，验证非空素材证据、设计护照、逐页布局与增强决策，而非匹配关键词。每页 `layoutEvidence` 必须含 `itemCount` 与 `sourceRefs`，量化版式还须有 `numericValues`；HTML 容器同步写入 `data-item-count`。执行层还必须记录覆盖全部页面的 `sourceVisualReview`，因为 HTML/PPT 对比图只能发现转换差异，不能发现两侧共有的源设计问题。脚本位置为 `<collection_root>/ppt-workflow/scripts/check_workflow_state.py`；从 `ppt-workflow/templates/workflow-state.example.json` 创建任务状态文件。
 > ```bash
-> python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep|decision|exec|deliver \
+> python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep|intent|decision|exec|deliver \
 >   --task <task_dir>
 > ```
 
 ## 四层自检清单速查（完成每层时运行脚本 + 输出打勾结果）
 - **准备层**：`check --layer prep` → content-inventory.md 写入 | 素材类型判定 | WebSearch有来源 | 页数预判 | convert.py提前查
-- **决策层**：`check --layer decision` → Phase1完成 | 按场景选skill | 方向名精确 | Phase2完成 | 反模板审查 | 护照4字段填
+- **意图采集层**：`check --layer intent` → 12 项、3 批、每项 `creator-confirmed`、每批创作者回复证据
+- **决策层**：`check --layer decision` → 意图采集已通过 | 按场景选skill | 方向名精确 | Phase2完成 | 反模板审查 | 护照4字段填
 - **执行层**：`check --layer exec` → 速查卡已读 | 每页布局编号 | 数据版式P0 | B系列直角 | 字体已替换 | 节奏表 | 无3页同主题 | 未漂移 | 逐页扫过 | pointer-events:none | 颜色走变量 | 独立审查
 - **交付层**：`check --layer deliver` → convert.py存在 | toml已配置 | 形态确认 | 降级已告知 | audit已跑

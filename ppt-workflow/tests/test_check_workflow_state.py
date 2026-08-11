@@ -11,6 +11,37 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_workflow_state.py"
 
 
+def valid_intent_questionnaire():
+    questions = [
+        ("audience", 1), ("intent", 1), ("coreClaim", 1), ("canvas", 1),
+        ("language", 2), ("expectedOutcome", 2), ("useScene", 2), ("deliveryUse", 2),
+        ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3), ("referenceStyle", 3),
+    ]
+    answers = {
+        "audience": "Leadership", "intent": "Decision", "coreClaim": "Invest", "canvas": "ppt169",
+    }
+    return {
+        "schemaVersion": 1,
+        "skill": "ppt-workflow-intake",
+        "completed": True,
+        "responses": [
+            {
+                "id": question_id,
+                "batch": batch,
+                "question": f"Question for {question_id}",
+                "answer": answers.get(question_id, f"Creator answer for {question_id}"),
+                "source": "creator-confirmed",
+                "evidence": f"Creator reply after batch {batch}",
+            }
+            for question_id, batch in questions
+        ],
+        "batches": [
+            {"batch": 1, "questionIds": ["audience", "intent", "coreClaim", "canvas"], "creatorConfirmation": "Creator reply after batch 1"},
+            {"batch": 2, "questionIds": ["language", "expectedOutcome", "useScene", "deliveryUse"], "creatorConfirmation": "Creator reply after batch 2"},
+            {"batch": 3, "questionIds": ["storyline", "contentFocus", "informationDensity", "referenceStyle"], "creatorConfirmation": "Creator reply after batch 3"},
+        ],
+    }
+
 def valid_state():
     passport = {
         "theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF",
@@ -26,6 +57,7 @@ def valid_state():
         },
         "decision": {
             "phase1": {"audience": "Leadership", "intent": "Decision", "coreClaim": "Invest", "canvas": "ppt169"},
+            "intentQuestionnaire": valid_intent_questionnaire(),
             "phase2": {"pageCount": 2, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none"},
             "passport": passport,
             "antiTemplateReview": {
@@ -122,9 +154,62 @@ class WorkflowStateTests(unittest.TestCase):
 
     def test_valid_prep_decision_and_execution_pass(self):
         task = self.write_task(valid_state())
-        for layer in ("prep", "decision", "exec"):
+        for layer in ("prep", "intent", "decision", "exec"):
             result = self.check(task, layer)
             self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_intent_gate_rejects_a_missing_questionnaire(self):
+        state = valid_state()
+        del state["decision"]["intentQuestionnaire"]
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("intent questionnaire has schema version", result.stdout)
+
+    def test_intent_gate_rejects_fewer_than_twelve_creator_answers(self):
+        state = valid_state()
+        state["decision"]["intentQuestionnaire"]["responses"].pop()
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("exactly 12 responses", result.stdout)
+        self.assertIn("includes every required question exactly once", result.stdout)
+
+    def test_intent_gate_rejects_duplicate_or_missing_question_ids(self):
+        state = valid_state()
+        state["decision"]["intentQuestionnaire"]["responses"][-1]["id"] = "audience"
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unique required question id", result.stdout)
+        self.assertIn("includes every required question exactly once", result.stdout)
+
+    def test_intent_gate_rejects_question_in_the_wrong_batch(self):
+        state = valid_state()
+        state["decision"]["intentQuestionnaire"]["responses"][0]["batch"] = 2
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("audience is in its required batch", result.stdout)
+
+    def test_intent_gate_rejects_inferred_creator_intent(self):
+        state = valid_state()
+        state["decision"]["intentQuestionnaire"]["responses"][0]["source"] = "inferred"
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("creator-confirmed, not inferred", result.stdout)
+
+    def test_intent_gate_rejects_phase1_drift_from_creator_answers(self):
+        state = valid_state()
+        state["decision"]["phase1"]["audience"] = "Model-inferred audience"
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("decision.phase1.audience exactly matches", result.stdout)
+
+    def test_decision_execution_and_delivery_repeat_the_intent_gate(self):
+        state = valid_state()
+        state["decision"]["intentQuestionnaire"]["completed"] = False
+        task = self.write_task(state)
+        for layer in ("decision", "exec", "deliver"):
+            result = self.check(task, layer)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("intent questionnaire is marked complete", result.stdout)
 
     def test_missing_manifest_fails_closed(self):
         result = self.check(self.write_task(), "prep")
