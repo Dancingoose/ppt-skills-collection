@@ -256,6 +256,14 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("composition stays within the selected design boldness level", result.stdout)
 
+    def test_v2_rejects_a_photo_dependent_composition_without_an_approved_image(self):
+        state = valid_v2_state(level=2)
+        state["execution"]["slides"][0]["compositionPattern"] = "P05"
+        state["execution"]["slides"][1]["compositionPattern"] = "P03"
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("photo-dependent composition has an approved image decision", result.stdout)
+
     def test_intent_gate_rejects_fewer_than_twelve_creator_answers(self):
         state = valid_state()
         state["decision"]["intentQuestionnaire"]["responses"].pop()
