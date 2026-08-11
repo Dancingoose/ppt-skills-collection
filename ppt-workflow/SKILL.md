@@ -385,7 +385,7 @@ html-to-pptx 首次使用需要确认两条偏好（fonts.auto_install + audit.m
 python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer deliver --task <task_dir>
 ```
 
-脚本自动核对转换依赖导入、Playwright 兼容浏览器实际渲染、交付形态及导出产物。若登记 PPTX 输出，还会核对输出文件和覆盖全页的交付审计记录。**任何 FAIL 项必须修正后重跑，全部 PASS 才交付。**
+脚本自动核对转换依赖导入、Playwright 兼容浏览器实际渲染、交付形态及导出产物。若登记 PPTX 输出，还会核对输出文件和覆盖全页的交付审计记录；审计必须另存为 JSON artifact，记录结果、全页计数、PPTX SHA-256、实际渲染器和结论，并与 manifest 完全一致。**任何 FAIL 项必须修正后重跑，全部 PASS 才交付。**
 
 ```
 [ ] check_workflow_state.py --layer deliver 已运行且全部 PASS

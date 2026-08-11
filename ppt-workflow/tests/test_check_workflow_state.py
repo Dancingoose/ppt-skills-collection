@@ -608,6 +608,44 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("PPTX has not changed since delivery audit", result.stdout)
 
+    def test_delivery_accepts_a_file_backed_pptx_audit(self):
+        state = valid_state()
+        state["task"]["deliveryFormat"] = "pptx"
+        state["delivery"].update({
+            "output": "deck.pptx",
+            "audit": {"result": "pass", "reviewedPages": 2, "pptxSha256": "", "artifact": "pptx-audit.json", "notes": "PowerPoint comparison reviewed."},
+        })
+        task = self.write_task(state)
+        pptx_path = task / "deck.pptx"
+        pptx_path.write_bytes(b"audited output")
+        digest = hashlib.sha256(pptx_path.read_bytes()).hexdigest()
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["audit"]["pptxSha256"] = digest
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        (task / "pptx-audit.json").write_text(json.dumps({
+            "schemaVersion": 1, "result": "pass", "reviewedPages": 2, "pptxSha256": digest,
+            "renderer": "PowerPoint", "notes": "Compared both rendered slides against HTML references.",
+        }), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_delivery_rejects_an_unbacked_pptx_audit_manifest(self):
+        state = valid_state()
+        state["task"]["deliveryFormat"] = "pptx"
+        state["delivery"].update({
+            "output": "deck.pptx",
+            "audit": {"result": "pass", "reviewedPages": 2, "pptxSha256": "", "notes": "PowerPoint comparison reviewed."},
+        })
+        task = self.write_task(state)
+        pptx_path = task / "deck.pptx"
+        pptx_path.write_bytes(b"audited output")
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["audit"]["pptxSha256"] = hashlib.sha256(pptx_path.read_bytes()).hexdigest()
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("delivery audit artifact is recorded", result.stdout)
+
     def test_live_html_delivery_requires_playback_proof_and_current_file_hash(self):
         state = valid_state()
         intake = state["decision"]["intentQuestionnaire"]

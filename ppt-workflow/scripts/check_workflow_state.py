@@ -607,6 +607,15 @@ def check_delivery(state, task_dir, v):
         audited_pptx_hash = v.value(audit, "pptxSha256", "delivery audit records the audited PPTX hash")
         actual_pptx_hash = hashlib.sha256((task_dir / output).read_bytes()).hexdigest() if isinstance(output, str) and (task_dir / output).is_file() else ""
         v.require(normalized_sha256(audited_pptx_hash) == actual_pptx_hash, "PPTX has not changed since delivery audit")
+        audit_name = v.value(audit, "artifact", "delivery audit artifact is recorded")
+        artifact = load_json_artifact(task_dir, audit_name, "delivery audit", v)
+        v.require(artifact.get("schemaVersion") == 1, "delivery audit artifact has schema version")
+        v.require(artifact.get("result") == audit.get("result"), "delivery audit artifact agrees with manifest result")
+        v.require(artifact.get("reviewedPages") == audit.get("reviewedPages"), "delivery audit artifact agrees with reviewed page count")
+        v.require(normalized_sha256(artifact.get("pptxSha256")) == normalized_sha256(audited_pptx_hash),
+                  "delivery audit artifact agrees with PPTX hash")
+        v.value(artifact, "renderer", "delivery audit artifact names the rendering engine")
+        v.value(artifact, "notes", "delivery audit artifact has notes")
 
 
 def main():
