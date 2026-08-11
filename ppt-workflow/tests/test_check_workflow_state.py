@@ -46,6 +46,7 @@ def valid_state():
     passport = {
         "theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF",
         "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial",
+        "backgroundStrategy": "rhythmic", "primaryBackgroundMode": "dark",
     }
     return {
         "schemaVersion": 1,
@@ -307,6 +308,30 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "exec")
         self.assertEqual(result.returncode, 2)
         self.assertIn("approved page count", result.stdout)
+
+    def test_uniform_background_strategy_rejects_a_mixed_mode_deck(self):
+        state = valid_state()
+        state["decision"]["passport"]["backgroundStrategy"] = "uniform"
+        state["execution"]["lockedPassport"] = copy.deepcopy(state["decision"]["passport"])
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("uniform background strategy keeps every slide", result.stdout)
+
+    def test_uniform_background_strategy_accepts_an_all_dark_deck(self):
+        state = valid_state()
+        state["decision"]["passport"]["backgroundStrategy"] = "uniform"
+        state["execution"]["lockedPassport"] = copy.deepcopy(state["decision"]["passport"])
+        state["execution"]["slides"][1]["dark"] = True
+        html = HTML.replace("data-color-system='coastal-light'", "data-color-system='coastal-dark'")
+        task = self.write_task(state, html)
+        artifact_path = task / state["execution"]["colorContinuityReview"]["artifact"]
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        artifact["colorSystems"] = [
+            {"id": "coastal-dark", "mode": "dark", "slides": [1, 2], "baseColor": "#10283C", "temperature": "cool", "dominantSurface": "ink with aqua details", "notes": "The deck uses one dark system."},
+        ]
+        artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_execution_requires_an_explicit_converter_slide_marker(self):
         result = self.check(self.write_task(valid_state(), HTML.replace("data-pptx-slide", "")), "exec")

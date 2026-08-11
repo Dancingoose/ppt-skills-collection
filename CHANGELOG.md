@@ -1,5 +1,11 @@
 # Workflow Change Log
 
+## 2026-08-11 - Explicit Background Strategy
+
+- Replaced the unconditional “no three consecutive slides share a background mode” rule with a locked passport choice: `uniform` or `rhythmic`, plus `primaryBackgroundMode`.
+- A `uniform` deck now fails execution if any page switches from the approved deep/light background mode. The old alternation checks run only for `rhythmic` decks.
+- Reason: forcing background variation introduced shallow pages into a dark-led recruitment deck and made visual consistency worse.
+
 ## 2026-08-11 - Perceived Color Continuity Gate
 
 - Added a post-build `ppt-workflow-review` color-continuity review. It requires native-size sequence inspection of each light/dark color system, including base color, visual temperature, and dominant surface treatment.

@@ -34,7 +34,7 @@
       ]
     },
     "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none"},
-    "passport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial"},
+    "passport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial", "backgroundStrategy": "rhythmic", "primaryBackgroundMode": "light"},
     "antiTemplateReview": {"reviewer": "ppt-workflow-review", "skill": "ppt-workflow-review", "artifact": "anti-template-review.json", "result": "pass", "notes": "No default card stack or unsuitable type. The artifact records intent, evidence, theme, typography, and layout review."},
     "preview": {"html": "preview.html", "slideIds": [1, 2], "result": "approved", "notes": "The creator approved the cover and representative data page before full expansion."}
   },

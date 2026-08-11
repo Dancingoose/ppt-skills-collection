@@ -29,9 +29,10 @@
 | 流程 | A6/B11(线性)/B14(闭环) | B11≠闭环 |
 | 收尾 | A7/A8/B9/B12 | B9每deck仅1次 |
 
-## 节奏硬规则
-- 禁连续3页同主题(light/dark)
-- 8页+ deck 至少1个 hero dark + 1个 hero light
+## 背景策略硬规则
+- 设计护照必须先选 `uniform`（全 deck 同一深浅模式）或 `rhythmic`（刻意的深浅节奏），并记录 `primaryBackgroundMode`
+- `uniform`：每页必须使用同一背景模式；不得为了“节奏”擅自插入浅/深色页
+- `rhythmic`：才适用“禁连续3页同主题(light/dark)”；8页+ deck 至少1个 hero dark + 1个 hero light
 - 每3-4页插1个 hero（封面/幕封/问题/大引用）
 - 先画节奏表（layout-library L836-848 模板），再动手
 
@@ -72,5 +73,5 @@
 - **准备层**：`check --layer prep` → content-inventory.md 写入 | 素材类型判定 | WebSearch有来源 | 页数预判 | convert.py提前查
 - **意图采集层**：`check --layer intent` → 12 项、3 批、每项 `creator-confirmed`、每批创作者回复证据
 - **决策层**：`check --layer decision` → 意图采集已通过 | 按场景选skill | 方向名精确 | Phase2完成 | 反模板审查 | 护照4字段填
-- **执行层**：`check --layer exec` → 速查卡已读 | 每页布局编号与 color system | 数据版式P0 | B系列直角 | 字体已替换 | 节奏表 | 无3页同主题 | 感知底色/色温/主导色块连续性审查 | 未漂移 | 逐页扫过 | pointer-events:none | 颜色走变量 | 独立审查
+- **执行层**：`check --layer exec` → 速查卡已读 | 每页布局编号与 color system | 数据版式P0 | B系列直角 | 字体已替换 | 背景策略已兑现（仅 rhythmic 检查深浅节奏）| 感知底色/色温/主导色块连续性审查 | 未漂移 | 逐页扫过 | pointer-events:none | 颜色走变量 | 独立审查
 - **交付层**：`check --layer deliver` → convert.py存在 | toml已配置 | 形态确认 | 降级已告知 | audit已跑

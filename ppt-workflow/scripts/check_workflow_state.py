@@ -211,6 +211,10 @@ def check_decision(state, task_dir, v):
     passport = decision.get("passport", {})
     for key in ("theme", "accent", "background", "titleFont", "bodyFont", "style"):
         v.value(passport, key, f"decision.passport.{key} is non-empty")
+    v.require(passport.get("backgroundStrategy") in {"uniform", "rhythmic"},
+              "decision.passport.backgroundStrategy is uniform or rhythmic")
+    v.require(passport.get("primaryBackgroundMode") in {"dark", "light"},
+              "decision.passport.primaryBackgroundMode is dark or light")
     review = decision.get("antiTemplateReview", {})
     v.value(review, "reviewer", "anti-template reviewer is named")
     v.require(review.get("result") in {"pass", "revised"}, "anti-template review has a result")
@@ -380,9 +384,15 @@ def check_execution(state, task_dir, v):
             }.get(effect_type)
             v.require(signal is not None and bool(re.search(signal, html, re.I)), f"slide {slide_id} applied effect is present in HTML")
     colors = [bool(item.get("dark")) for item in slides]
-    v.require(not any(colors[i] == colors[i + 1] == colors[i + 2] for i in range(max(0, len(colors) - 2))), "no three consecutive slides share a background mode")
-    if len(slides) >= 8:
-        v.require(any(colors) and not all(colors), "long deck contains both light and dark rhythm pages")
+    if passport.get("backgroundStrategy") == "uniform":
+        expected_dark = passport.get("primaryBackgroundMode") == "dark"
+        v.require(all(color == expected_dark for color in colors),
+                  "uniform background strategy keeps every slide in the approved primary mode")
+    elif passport.get("backgroundStrategy") == "rhythmic":
+        v.require(not any(colors[i] == colors[i + 1] == colors[i + 2] for i in range(max(0, len(colors) - 2))),
+                  "rhythmic background strategy has no three consecutive slides in one mode")
+        if len(slides) >= 8:
+            v.require(any(colors) and not all(colors), "long rhythmic deck contains both light and dark pages")
     effect_scan = execution.get("effectScan", {})
     v.require(effect_scan.get("skill") == "ppt-workflow-effects", "effect scan uses the packaged effects skill")
     scan_name = v.value(effect_scan, "artifact", "effect scan artifact is recorded")
