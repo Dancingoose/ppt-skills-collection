@@ -646,6 +646,38 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("live HTML has not changed since playback audit", result.stdout)
 
+    def test_live_html_delivery_requires_a_static_pptx_fallback(self):
+        state = valid_state()
+        intake = state["decision"]["intentQuestionnaire"]
+        intake["schemaVersion"] = 2
+        intake["responses"].insert(-1, {
+            "id": "designBoldness", "batch": 3,
+            "question": "How bold should the design be?", "answer": "Bold", "level": 4,
+            "source": "creator-confirmed", "evidence": "Creator reply after batch 3",
+        })
+        intake["batches"][2]["questionIds"] = [
+            "storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle",
+        ]
+        state["decision"]["phase2"].update({
+            "designBoldness": {"level": 4, "profile": "bold"},
+            "motionDelivery": {"mode": "pptx-plus-live-html", "creatorConfirmed": True, "evidence": "Creator approved live HTML."},
+        })
+        state["execution"]["slides"][0]["compositionPattern"] = "P10"
+        state["execution"]["slides"][1]["compositionPattern"] = "P03"
+        state["delivery"]["liveHtml"] = {
+            "output": "live-presentation.html",
+            "playbackAudit": {"result": "pass", "motionObserved": True, "htmlSha256": "", "notes": "Playback reviewed."},
+        }
+        task = self.write_task(state)
+        live_html = task / "live-presentation.html"
+        live_html.write_text("<canvas></canvas>", encoding="utf-8")
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["liveHtml"]["playbackAudit"]["htmlSha256"] = hashlib.sha256(live_html.read_bytes()).hexdigest()
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("live HTML delivery includes a static PPTX fallback output", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

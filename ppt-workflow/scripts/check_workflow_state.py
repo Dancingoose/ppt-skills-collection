@@ -560,6 +560,8 @@ def check_delivery(state, task_dir, v):
     phase2 = state.get("decision", {}).get("phase2", {})
     intake_schema = state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion")
     if intake_schema == 2 and phase2.get("motionDelivery", {}).get("mode") == "pptx-plus-live-html":
+        v.require(isinstance(delivery.get("output"), str) and delivery.get("output", "").lower().endswith(".pptx"),
+                  "live HTML delivery includes a static PPTX fallback output")
         live = delivery.get("liveHtml", {})
         v.require(isinstance(live, dict), "live HTML delivery is recorded")
         live = live if isinstance(live, dict) else {}
