@@ -240,6 +240,69 @@ def slide_count(html: str):
     return len(re.findall(r"class=[\"'][^\"']*\bslide\b", html))
 
 
+def check_color_continuity_review(review, task_dir, html, html_path, slides, seen_ids, v):
+    v.require(review.get("skill") == "ppt-workflow-review", "color continuity review uses the packaged review skill")
+    v.require(review.get("result") in {"pass", "revised"}, "color continuity review has a result")
+    artifact_name = v.value(review, "artifact", "color continuity review artifact is recorded")
+    artifact = load_json_artifact(task_dir, artifact_name, "color continuity review", v)
+    v.require(artifact.get("schemaVersion") == 1, "color continuity review artifact has schema version")
+    v.require(artifact.get("skill") == "ppt-workflow-review", "color continuity review artifact identifies the review skill")
+    v.require(artifact.get("result") == review.get("result"), "color continuity review artifact agrees with the manifest result")
+
+    reviewed_slides = review.get("reviewedSlides")
+    artifact_slides = artifact.get("reviewedSlides")
+    for label, values in (("manifest", reviewed_slides), ("artifact", artifact_slides)):
+        v.require(isinstance(values, list) and set(values) == seen_ids and len(values) == len(seen_ids),
+                  f"color continuity review {label} covers every slide exactly once")
+    actual_html_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
+    manifest_hash = v.value(review, "htmlSha256", "color continuity review records the reviewed HTML hash")
+    artifact_hash = v.value(artifact, "htmlSha256", "color continuity artifact records the reviewed HTML hash")
+    v.require(manifest_hash == artifact_hash == actual_html_hash,
+              "color continuity review applies to the current execution HTML")
+    v.value(review, "notes", "color continuity review has notes")
+    v.value(artifact, "notes", "color continuity review artifact has notes")
+
+    expected_by_mode = {
+        "dark": [item.get("id") for item in slides if bool(item.get("dark"))],
+        "light": [item.get("id") for item in slides if not bool(item.get("dark"))],
+    }
+    expected_by_mode = {mode: ids for mode, ids in expected_by_mode.items() if ids}
+    systems = artifact.get("colorSystems")
+    v.require(isinstance(systems, list) and bool(systems), "color continuity artifact has color system records")
+    systems_by_mode = {}
+    if isinstance(systems, list):
+        for system in systems:
+            system = system if isinstance(system, dict) else {}
+            system_id = v.value(system, "id", "color system has an id")
+            mode = system.get("mode")
+            v.require(mode in expected_by_mode and mode not in systems_by_mode,
+                      f"color system {system_id!r} has a unique represented mode")
+            if mode in expected_by_mode and mode not in systems_by_mode:
+                systems_by_mode[mode] = system
+                v.require(system.get("slides") == expected_by_mode[mode],
+                          f"{mode} color system covers its exact slide sequence")
+            base_color = system.get("baseColor")
+            v.require(isinstance(base_color, str) and bool(re.fullmatch(r"#[0-9A-Fa-f]{6}", base_color)),
+                      f"color system {system_id!r} records a hex canvas base color")
+            v.require(system.get("temperature") in {"cool", "neutral", "warm"},
+                      f"color system {system_id!r} records its visual temperature")
+            v.value(system, "dominantSurface", f"color system {system_id!r} records its dominant surface treatment")
+            v.value(system, "notes", f"color system {system_id!r} records visual continuity findings")
+    v.require(set(systems_by_mode) == set(expected_by_mode), "color continuity artifact covers every represented background mode")
+
+    tags = re.findall(r"<[^>]+>", html)
+    for mode, slide_ids in expected_by_mode.items():
+        system = systems_by_mode.get(mode, {})
+        system_id = system.get("id")
+        system_pattern = re.escape(system_id) if isinstance(system_id, str) else r"(?!)"
+        for slide_id in slide_ids:
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-color-system=[\"']{system_pattern}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} embeds its reviewed {mode} color system")
+
+
 def check_execution(state, task_dir, v):
     check_intent(state, task_dir, v)
     execution = state.get("execution", {})
@@ -353,6 +416,7 @@ def check_execution(state, task_dir, v):
     reviewed_html_hash = v.value(source_review, "htmlSha256", "source HTML visual review records the reviewed HTML hash")
     actual_html_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
     v.require(reviewed_html_hash == actual_html_hash, "source HTML has not changed since visual review")
+    check_color_continuity_review(execution.get("colorContinuityReview", {}), task_dir, html, html_path, slides, seen_ids, v)
     review = execution.get("independentReview", {})
     v.require(review.get("result") in {"pass", "revised"}, "independent execution review has a result")
     v.value(review, "notes", "independent execution review has notes")

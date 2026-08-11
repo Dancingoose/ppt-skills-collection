@@ -283,7 +283,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 **不可跳过。** 即使判断"该页不需要增强"，也必须执行逐页扫描（同一次即可）。将结果写入 `effects-scan.json`：根对象必须包含 `schemaVersion: 1`、`skill: "ppt-workflow-effects"` 和 `slides`；每页记录 `id`、`status`、`reason`，应用效果时还要记录 `type`。在 `execution.effectScan` 登记该文件和所有 slide ID；检查器会逐项比对它与 `visualEffect`。
 
-**审查绑定：** 源页逐张目检完成后，对最终的 `execution.html` 计算 SHA-256 并写入 `execution.sourceVisualReview.htmlSha256`。交付 PPTX 对比审计完成后，对该 PPTX 计算 SHA-256 并写入 `delivery.audit.pptxSha256`。任一文件在审查后被改动，门禁必须重新失败，直到重新审查并更新对应哈希。
+**审查绑定：** 源页逐张目检完成后，对最终的 `execution.html` 计算 SHA-256 并写入 `execution.sourceVisualReview.htmlSha256`。再按深浅色系统检查感知底色、视觉温度和主导色块，排除“CSS 底色相同但暖/冷大色块使页面看起来换了背景”的假漂移；将同一哈希写入 `execution.colorContinuityReview.htmlSha256`。交付 PPTX 对比审计完成后，对该 PPTX 计算 SHA-256 并写入 `delivery.audit.pptxSha256`。任一文件在审查后被改动，门禁必须重新失败，直到重新审查并更新对应哈希。
 
 | 页面内容信号 | 自动注入 | 库 |
 |-------------|---------|-----|
@@ -310,7 +310,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 ### 源页面视觉审查
 
-在运行执行层检查前，逐页以**原生画布尺寸**查看 HTML，排除重叠、裁切、溢出和对比度问题。将结果写入 `workflow-state.json` 的 `execution.sourceVisualReview`：`result` 为 `pass` 或 `revised`，`reviewedSlides` 必须完整且不重复，`notes` 记录实际审查结论。HTML/PPT 对比图只验证转换忠实度，不能替代这一步。
+在运行执行层检查前，逐页以**原生画布尺寸**查看 HTML，排除重叠、裁切、溢出和对比度问题。将结果写入 `workflow-state.json` 的 `execution.sourceVisualReview`：`result` 为 `pass` 或 `revised`，`reviewedSlides` 必须完整且不重复，`notes` 记录实际审查结论。再以阅读顺序按 `data-color-system` 分组检查每个深浅系统的感知底色、视觉温度、主导色块与图片/提示块的色彩权重；每个 `.slide` 必须有 `data-color-system`，并把全量结果、HTML 哈希和各系统覆盖页写入 `color-continuity-review.json` 与 `execution.colorContinuityReview`。相同 CSS 底色不是通过条件。HTML/PPT 对比图只验证转换忠实度，不能替代这一步。
 
 ### 执行层强制自检清单（Step 4-7 完成后逐项打勾）
 
@@ -336,6 +336,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer ex
 [ ] Canvas/WebGL pointer-events: none
 [ ] 增强代码颜色走 CSS 变量，无硬编码 hex
 [ ] 已逐页审查原生 HTML，并将完整结果写入 execution.sourceVisualReview
+[ ] 已按 color system 检查感知底色、色温和主导色块，并写入 execution.colorContinuityReview
 [ ] 独立审查已做（缩略图/溢出/对比）
 ```
 

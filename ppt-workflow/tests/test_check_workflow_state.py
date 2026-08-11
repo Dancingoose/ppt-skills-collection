@@ -83,6 +83,11 @@ def valid_state():
                 "result": "pass", "reviewedSlides": [1, 2],
                 "htmlSha256": "", "notes": "Reviewed each source slide for overlap, clipping, and contrast.",
             },
+            "colorContinuityReview": {
+                "skill": "ppt-workflow-review", "artifact": "color-continuity-review.json", "result": "pass",
+                "reviewedSlides": [1, 2], "htmlSha256": "",
+                "notes": "Reviewed the dark and light systems for base color, temperature, and surface continuity.",
+            },
             "independentReview": {"result": "pass", "notes": "No layout defects."},
         },
         "delivery": {"converterHealthChecked": True, "canvasRasterizationAcknowledged": True},
@@ -90,8 +95,8 @@ def valid_state():
 
 
 HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/echarts@5'></script></head><body>
-<section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0'></section>
-<section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1'></section>
+<section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark'></section>
+<section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1' data-color-system='coastal-light'></section>
 </body></html>"""
 
 PREVIEW_HTML = """<!doctype html><html><body>
@@ -125,6 +130,9 @@ class WorkflowStateTests(unittest.TestCase):
             source_review = state["execution"].get("sourceVisualReview")
             if isinstance(source_review, dict):
                 source_review["htmlSha256"] = hashlib.sha256((task / "design.html").read_bytes()).hexdigest()
+            color_review = state["execution"].get("colorContinuityReview")
+            if isinstance(color_review, dict):
+                color_review["htmlSha256"] = hashlib.sha256((task / "design.html").read_bytes()).hexdigest()
             (task / "workflow-state.json").write_text(json.dumps(state), encoding="utf-8")
             review = state["decision"]["antiTemplateReview"]
             (task / review["artifact"]).write_text(json.dumps({
@@ -143,6 +151,19 @@ class WorkflowStateTests(unittest.TestCase):
                     for effect in [dict({"id": slide["id"]}, **slide["visualEffect"]) for slide in state["execution"]["slides"]]
                 ],
             }), encoding="utf-8")
+            if isinstance(color_review, dict):
+                (task / color_review["artifact"]).write_text(json.dumps({
+                    "schemaVersion": 1,
+                    "skill": color_review["skill"],
+                    "result": color_review["result"],
+                    "reviewedSlides": color_review["reviewedSlides"],
+                    "htmlSha256": color_review["htmlSha256"],
+                    "notes": color_review["notes"],
+                    "colorSystems": [
+                        {"id": "coastal-dark", "mode": "dark", "slides": [1], "baseColor": "#10283C", "temperature": "cool", "dominantSurface": "ink with aqua details", "notes": "The cover uses the dark coastal system."},
+                        {"id": "coastal-light", "mode": "light", "slides": [2], "baseColor": "#F2FBFA", "temperature": "cool", "dominantSurface": "foam with aqua details", "notes": "The content page uses the light coastal system."},
+                    ],
+                }), encoding="utf-8")
         self.addCleanup(directory.cleanup)
         return task
 
@@ -299,6 +320,27 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("source HTML visual review has a result", result.stdout)
         self.assertIn("source HTML visual review covers every slide", result.stdout)
+
+    def test_execution_requires_file_backed_color_continuity_review(self):
+        state = valid_state()
+        task = self.write_task(state)
+        (task / state["execution"]["colorContinuityReview"]["artifact"]).unlink()
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("color continuity review artifact exists", result.stdout)
+
+    def test_execution_rejects_color_system_not_embedded_in_html(self):
+        html = HTML.replace("data-color-system='coastal-light'", "data-color-system='wrong-light'")
+        result = self.check(self.write_task(valid_state(), html), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("embeds its reviewed light color system", result.stdout)
+
+    def test_execution_rejects_color_review_for_changed_html(self):
+        task = self.write_task(valid_state())
+        (task / "design.html").write_text(HTML + "<!-- changed after color review -->", encoding="utf-8")
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("color continuity review applies to the current execution HTML", result.stdout)
 
     def test_execution_rejects_html_changed_after_source_review(self):
         task = self.write_task(valid_state())

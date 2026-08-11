@@ -1,5 +1,11 @@
 # Workflow Change Log
 
+## 2026-08-11 - Perceived Color Continuity Gate
+
+- Added a post-build `ppt-workflow-review` color-continuity review. It requires native-size sequence inspection of each light/dark color system, including base color, visual temperature, and dominant surface treatment.
+- Added `execution.colorContinuityReview`, a file-backed `color-continuity-review.json` artifact, `data-color-system` bindings, and execution-gate validation tied to the exact reviewed HTML hash.
+- Reason: a deck can use the same literal CSS background on two slides yet feel inconsistent when warm images or large callouts overpower one page's surface system.
+
 ## 2026-08-11 - Fail-Closed Creator Intent Intake
 
 - Added the `ppt-workflow-intake` Codex skill. It collects all 12 intent questions in three batches and waits for the creator's response after each batch.
