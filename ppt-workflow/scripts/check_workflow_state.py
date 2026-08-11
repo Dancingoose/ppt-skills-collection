@@ -526,6 +526,7 @@ def check_execution(state, task_dir, v):
                 "matter": r"matter-js|Matter\.Engine",
                 "spline": r"spline-viewer",
                 "canvas": r"<canvas",
+                "native-motion": r"data-pptx-motion|@keyframes|\banimation\s*:|\.animate\s*\(",
             }.get(effect_type)
             v.require(signal is not None and bool(re.search(signal, html, re.I)), f"slide {slide_id} applied effect is present in HTML")
     if intake_schema == 2 and composition_patterns:

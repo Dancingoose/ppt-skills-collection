@@ -9,7 +9,7 @@ Use the collection named by `PPT_WORKFLOW_ROOT`, or `D:\GPTworkspace\ppt-skills-
 
 1. Scan every slide exactly once after its HTML structure is complete. Consider effects only when they improve the meaning: sourced charts for real data, Canvas for a suitable expressive motif, or a restrained motion/3D treatment for genuinely spatial or energetic content.
 2. Skip effects for text-led, source-image-led, dense, or static information slides when an effect would weaken inspection, readability, or delivery reliability. Do not inject an effect merely to satisfy the scan.
-3. For an applied effect, embed working code inside the relevant `.slide`, preserve editable foreground text, use the selected theme's CSS variables, and verify that the effect is visible in the source HTML. Keep chart data traceable to supplied evidence.
+3. For an applied effect, embed working code inside the relevant `.slide`, preserve editable foreground text, use the selected theme's CSS variables, and verify that the effect is visible in the source HTML. Keep chart data traceable to supplied evidence. For motion that must survive as a PowerPoint-native animation, follow `html-to-pptx/references/native-motion.md`; use CSS/WAAPI entrance motion or the explicit `data-pptx-motion` contract rather than Canvas-only motion.
 4. Write `<task>/effects-scan.json` with one entry for every slide:
 
 ```json

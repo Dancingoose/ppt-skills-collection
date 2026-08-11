@@ -34,6 +34,7 @@ from embed_fonts import (
     family_alias_map, weighted_family_map, cjk_typefaces, cjk_for_style, style_of_typeface,
 )
 from text_utils import is_cjk_text
+from motion import apply_native_animations
 
 # 字体映射全部从 embed_fonts.FONT_PLAN 派生：
 # - FONT_FALLBACKS: CSS 名 → OOXML typeface
@@ -1163,11 +1164,11 @@ def add_svg_picture(slide, rec):
     if not png_path or not Path(png_path).exists():
         print(f"  [skip svg] no screenshot for {rec.get('marker', '?')}")
         return
-    slide.shapes.add_picture(png_path,
-                             px_to_emu(r["x"]),
-                             px_to_emu(r["y"]),
-                             px_to_emu(r["w"]),
-                             px_to_emu(r["h"]))
+    return slide.shapes.add_picture(png_path,
+                                    px_to_emu(r["x"]),
+                                    px_to_emu(r["y"]),
+                                    px_to_emu(r["w"]),
+                                    px_to_emu(r["h"]))
 
 
 def add_img_picture(slide, rec):
@@ -1180,11 +1181,11 @@ def add_img_picture(slide, rec):
     if not png_path or not Path(png_path).exists():
         print(f"  [skip img] no screenshot for {rec.get('src', '?')}")
         return
-    slide.shapes.add_picture(png_path,
-                             px_to_emu(r["x"]),
-                             px_to_emu(r["y"]),
-                             px_to_emu(r["w"]),
-                             px_to_emu(r["h"]))
+    return slide.shapes.add_picture(png_path,
+                                    px_to_emu(r["x"]),
+                                    px_to_emu(r["y"]),
+                                    px_to_emu(r["w"]),
+                                    px_to_emu(r["h"]))
 
 
 def add_canvas_picture(slide, rec):
@@ -1239,6 +1240,13 @@ def assemble_slide(slide, data):
     _prepare_text_layouts(data["records"])
 
     text_records = []
+    motion_targets = {}
+
+    def register_motion_target(rec, shape):
+        motion_id = rec.get("motionId")
+        if motion_id and shape is not None and motion_id not in motion_targets:
+            motion_targets[motion_id] = shape
+
     for rec in data["records"]:
         if rec["kind"] == "shape":
             # 整页 section：仅当视觉上与 slide 背景等价（不透明同色、无边框）才跳过
@@ -1254,22 +1262,24 @@ def assemble_slide(slide, data):
                     same_as_bg = a_ >= 1.0 and (r_, g_, b_) == tuple(bg_rgb)
                 if borderless and same_as_bg:
                     continue
-            add_shape_box(slide, rec)
+            register_motion_target(rec, add_shape_box(slide, rec))
         elif rec["kind"] == "text":
             text_records.append(rec)
         elif rec["kind"] == "svg":
-            add_svg_picture(slide, rec)
+            register_motion_target(rec, add_svg_picture(slide, rec))
         elif rec["kind"] == "canvas":
-            add_canvas_picture(slide, rec)
+            register_motion_target(rec, add_canvas_picture(slide, rec))
         elif rec["kind"] == "deco_snapshot":
-            add_deco_snapshot(slide, rec)
+            register_motion_target(rec, add_deco_snapshot(slide, rec))
         elif rec["kind"] == "img":
-            add_img_picture(slide, rec)
+            register_motion_target(rec, add_img_picture(slide, rec))
 
     # Text sits above rasterized SVG/canvas/deco snapshots. Otherwise an opaque
     # picture can cover positioned labels that belong visually on top of it.
     for rec in text_records:
-        add_text_box(slide, rec)
+        register_motion_target(rec, add_text_box(slide, rec))
+
+    return apply_native_animations(slide, data.get("motions", []), motion_targets)
 
 
 def assemble(measurement, out_path: Path):
@@ -1293,8 +1303,9 @@ def assemble(measurement, out_path: Path):
 
     for i, sdata in enumerate(slides_data):
         slide = prs.slides.add_slide(blank_layout)
-        assemble_slide(slide, sdata)
-        print(f"  page {i+1:02d}: {len(sdata.get('records', []))} records, theme={sdata['slide']['theme']}")
+        motion_result = assemble_slide(slide, sdata)
+        print(f"  page {i+1:02d}: {len(sdata.get('records', []))} records, theme={sdata['slide']['theme']}, "
+              f"motion={len(motion_result['emitted'])}/{len(sdata.get('motions', []))}")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(out_path))

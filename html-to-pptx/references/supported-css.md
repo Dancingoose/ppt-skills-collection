@@ -69,7 +69,7 @@
 
 | 难题 | 消解策略 | 位置 |
 |---|---|---|
-| `@keyframes` / `animation` / `transition` | preflight 阶段全局 kill，永远拿终止帧 | `adapters.PREPARE_JS` |
+| `@keyframes` / `animation` / WAAPI | 在静态冻结前采集单次、可映射的入场动效；PPT 内写为原生 `p:timing`，静态画面仍取终态 | `motion.py` + `adapters.PREPARE_JS` |
 | `scroll-snap` 翻页容器 | force-position CSS 把每页强制定位回视口 | `adapters.PREPARE_JS` |
 | `transform: translateX(N*100vw)` 翻页 deck | 同上 | 同上 |
 | 手写 JS counter（`data-target` / `data-count-to` / `data-counter`） | 等终值或强制设终值再 measure | `measure.py` |

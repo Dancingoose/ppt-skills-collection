@@ -509,6 +509,18 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("applied effect is present", result.stdout)
 
+    def test_execution_accepts_native_motion_with_html_signal(self):
+        state = valid_state()
+        state["execution"]["slides"][1]["visualEffect"] = {
+            "status": "applied", "type": "native-motion",
+            "reason": "The metric reveal benefits from a native entrance.",
+        }
+        html = HTML.replace(
+            "data-slide-id='2'", "data-pptx-motion='fade' data-slide-id='2'",
+        )
+        result = self.check(self.write_task(state, html), "exec")
+        self.assertEqual(result.returncode, 0, result.stdout)
+
     def test_execution_page_count_must_match_decision(self):
         state = valid_state()
         state["decision"]["phase2"]["pageCount"] = 3

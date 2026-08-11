@@ -83,6 +83,8 @@ EXTRACT_JS = r"""
 
   const records = [];
   let nodeId = 0;
+  const motionIdFor = (el) => el && el.getAttribute
+    ? (el.getAttribute('data-pptx-motion-id') || '') : '';
 
   // 标记一个节点是否为 "text leaf"：包含 textContent 但所有子节点要么是文本节点，要么是 inline 装饰（em/span 等没有进一步分割结构的）
   // 简化：只要这个元素的 children 中没有任何 block 级元素，就算 text leaf。
@@ -446,6 +448,7 @@ EXTRACT_JS = r"""
         id: nodeId++,
         kind: 'svg',
         tag: 'svg',
+        motionId: motionIdFor(el),
         rect: rectRel(r),
         marker: `slide${slideIndex+1}-svg${svgIndex+1}`,
         outerHTML: el.outerHTML,
@@ -462,6 +465,7 @@ EXTRACT_JS = r"""
         id: nodeId++,
         kind: 'img',
         tag: 'img',
+        motionId: motionIdFor(el),
         rect: rectRel(r),
         marker: `slide${slideIndex+1}-img${imgIndex+1}`,
         src: el.currentSrc || el.src,
@@ -485,6 +489,7 @@ EXTRACT_JS = r"""
           id: nodeId++,
           kind: 'canvas',
           tag: tagLow,
+          motionId: motionIdFor(el),
           rect: rectRel(r),
           naturalSize: { w: el.offsetWidth, h: el.offsetHeight },
           rotation: cumulativeRotation(el),
@@ -531,6 +536,7 @@ EXTRACT_JS = r"""
           id: nodeId++,
           kind: 'deco_snapshot',
           tag: el.tagName.toLowerCase(),
+          motionId: motionIdFor(el),
           rect: rectRel(r),
           naturalSize: { w: el.offsetWidth, h: el.offsetHeight },
           rotation: cumulativeRotation(el),
@@ -584,6 +590,7 @@ EXTRACT_JS = r"""
           id: nodeId++,
           kind: 'text',
           tag: el.tagName.toLowerCase() + '::before',
+          motionId: motionIdFor(el),
           className: el.className || '',
           rect: rectRel(markerRect),
           naturalSize: { w: markerRect.width, h: markerRect.height },
@@ -602,6 +609,7 @@ EXTRACT_JS = r"""
           id: nodeId++,
           kind: 'text',
           tag: el.tagName.toLowerCase(),
+          motionId: motionIdFor(el),
           className: el.className || '',
           rect: rectRel(bodyRect),
           naturalSize: { w: bodyRect.width, h: bodyRect.height },
@@ -618,6 +626,7 @@ EXTRACT_JS = r"""
         id: nodeId++,
         kind: 'text',
         tag: el.tagName.toLowerCase(),
+        motionId: motionIdFor(el),
         className: el.className || '',
         rect: rectRel(r),
         // 元素未旋转的尺寸（不含 transform 效果），用于旋转还原
@@ -639,6 +648,7 @@ EXTRACT_JS = r"""
         id: nodeId++,
         kind: 'shape',
         tag: el.tagName.toLowerCase(),
+        motionId: motionIdFor(el),
         rect: rectRel(r),
         // 元素未旋转的尺寸（不含 transform 效果），用于旋转还原
         naturalSize: { w: el.offsetWidth, h: el.offsetHeight },
@@ -766,6 +776,7 @@ EXTRACT_JS = r"""
             id: nodeId++,
             kind: 'deco_snapshot',
             tag: atomicEl.tagName.toLowerCase(),
+            motionId: motionIdFor(atomicEl),
             rect: rectRel(aR),
             naturalSize: { w: atomicEl.offsetWidth, h: atomicEl.offsetHeight },
             rotation: cumulativeRotation(atomicEl),
@@ -789,6 +800,7 @@ EXTRACT_JS = r"""
       id: nodeId++,
       kind: 'text',
       tag: styleHost.tagName.toLowerCase() + '#inline',
+      motionId: motionIdFor(styleHost),
       className: styleHost.className || '',
       rect: rectRel(r),
       runs,
@@ -1363,8 +1375,11 @@ def measure(html_path: Path, out_json: Path | None = None, *,
                 print("  [canvas] 2s 内未稳定（可能是持续动画），按当前帧继续")
 
         # 一次性准备：disable 动画 / 注入 force-position CSS / 跑 slide 发现
-        from adapters import (PREPARE_JS, ENUMERATE_JS, ACTIVATE_JS,
+        from adapters import (PREPARE_JS, DISCOVER_JS, ENUMERATE_JS, ACTIVATE_JS,
                               REASSERT_TARGET_POSITION_JS)
+        from motion import capture_motions, motions_for_slide
+        page.evaluate(DISCOVER_JS)
+        source_motions = capture_motions(page)
         page.evaluate(PREPARE_JS)
         page.evaluate("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
 
@@ -1465,6 +1480,7 @@ def measure(html_path: Path, out_json: Path | None = None, *,
                         }
                     }""")
             data = page.evaluate(EXTRACT_JS, i)
+            data["motions"] = motions_for_slide(source_motions, i)
 
             # 统一截图四类 marker 元素：deco_snapshot / svg / canvas / img
             # 类型差异封装在 _MARKER_SHOOT_SPECS（pre/post JS、omit_background）

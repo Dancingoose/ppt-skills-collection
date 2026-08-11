@@ -74,3 +74,11 @@ skill 内部把所有 CSS 翻译成四档输出：
 - 文字消失 → 走了截图档但没发对应 text 记录
 
 来源：https://github.com/Hasasasa/claude-skill-html-to-pptx MIT License
+
+## Native Motion
+
+Before browser animation is frozen for static measurement, the converter
+captures supported CSS/WAAPI entrance motion and writes native PowerPoint
+timing. Read `references/native-motion.md` before authoring or reviewing an
+animated deck. Use `data-pptx-motion` when an explicit PowerPoint effect is
+needed or a library does not expose motion through `getAnimations()`.

@@ -34,7 +34,7 @@
 - force-position 到视窗：`position:fixed; inset:0; z-index:max; !important`
 - 清空所有祖先 transform（避免 fixed 不相对视窗）
 - 注入入场动画兜底 CSS：`[data-anim], [data-aos], [data-reveal], .fade-in` 等强制 `opacity:1; transform:none; visibility:visible; filter:none`
-- 关掉所有 transition / animation 时长
+- 先采集可映射的 CSS/WAAPI 入场动效，再关掉所有 transition / animation 时长；静态测量始终取终态
 
 **反假设规则**：不依赖页面"原本怎么切页 / 怎么揭示动画"——要它在哪儿就推到哪儿。
 
