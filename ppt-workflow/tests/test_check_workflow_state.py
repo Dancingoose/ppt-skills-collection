@@ -228,6 +228,50 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertIn("exactly 12 responses", result.stdout)
         self.assertIn("includes every required question exactly once", result.stdout)
 
+    def test_experimental_boldness_requires_live_html_delivery(self):
+        state = valid_state()
+        intake = state["decision"]["intentQuestionnaire"]
+        intake["schemaVersion"] = 2
+        intake["responses"].insert(-1, {
+            "id": "designBoldness", "batch": 3,
+            "question": "How bold should the design be?", "answer": "Experimental", "level": 5,
+            "source": "creator-confirmed", "evidence": "Creator reply after batch 3",
+        })
+        intake["batches"][2]["questionIds"] = [
+            "storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle",
+        ]
+        state["decision"]["phase2"].update({
+            "designBoldness": {"level": 5, "profile": "experimental"},
+            "motionDelivery": {"mode": "pptx-static", "creatorConfirmed": True, "evidence": "Creator selected static PPTX."},
+        })
+        state["execution"]["slides"][0]["compositionPattern"] = "P10"
+        state["execution"]["slides"][1]["compositionPattern"] = "P03"
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("experimental design boldness requires a playable live HTML companion", result.stdout)
+
+    def test_live_composition_rejects_a_static_only_delivery_choice(self):
+        state = valid_state()
+        intake = state["decision"]["intentQuestionnaire"]
+        intake["schemaVersion"] = 2
+        intake["responses"].insert(-1, {
+            "id": "designBoldness", "batch": 3,
+            "question": "How bold should the design be?", "answer": "Bold", "level": 4,
+            "source": "creator-confirmed", "evidence": "Creator reply after batch 3",
+        })
+        intake["batches"][2]["questionIds"] = [
+            "storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle",
+        ]
+        state["decision"]["phase2"].update({
+            "designBoldness": {"level": 4, "profile": "bold"},
+            "motionDelivery": {"mode": "pptx-static", "creatorConfirmed": True, "evidence": "Creator selected static PPTX."},
+        })
+        state["execution"]["slides"][0]["compositionPattern"] = "P14"
+        state["execution"]["slides"][1]["compositionPattern"] = "P03"
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("live composition requires a playable live HTML companion", result.stdout)
+
     def test_intent_gate_rejects_duplicate_or_missing_question_ids(self):
         state = valid_state()
         state["decision"]["intentQuestionnaire"]["responses"][-1]["id"] = "audience"
@@ -345,6 +389,51 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(task, "decision")
         self.assertEqual(result.returncode, 2)
         self.assertIn("covers every approved slide exactly once", result.stdout)
+
+    def test_decision_rejects_web_image_without_a_complete_approved_record(self):
+        state = valid_state()
+        task = self.write_task(state)
+        (task / "image-sourcing-plan.md").write_text(
+            "# Image Sourcing Plan\n\n| Slide | Decision |\n|---|---|\n"
+            "| 1 | no-image |\n| 2 | web-search |\n\n"
+            "### Slide 2\n- Candidate URL: https://images.example.com/route.jpg\n"
+            "- License: CC BY 4.0\n- Attribution: Example Photographer\n",
+            encoding="utf-8",
+        )
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("records a downloaded local file", result.stdout)
+        self.assertIn("has creator approval", result.stdout)
+
+    def test_decision_accepts_an_approved_web_image_with_task_local_file(self):
+        state = valid_state()
+        task = self.write_task(state)
+        asset = task / "assets" / "route.jpg"
+        asset.parent.mkdir()
+        asset.write_bytes(b"licensed image")
+        (task / "image-sourcing-plan.md").write_text(
+            "# Image Sourcing Plan\n\n| Slide | Decision |\n|---|---|\n"
+            "| 1 | no-image |\n| 2 | web-search |\n\n"
+            "### Slide 2\n- Candidate URL: https://images.example.com/route.jpg\n"
+            "- License: CC BY 4.0\n- Attribution: Example Photographer\n"
+            "- Local file: assets/route.jpg\n- Approval: creator-approved\n",
+            encoding="utf-8",
+        )
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_decision_rejects_supplied_image_missing_from_task_directory(self):
+        state = valid_state()
+        task = self.write_task(state)
+        (task / "image-sourcing-plan.md").write_text(
+            "# Image Sourcing Plan\n\n| Slide | Decision |\n|---|---|\n"
+            "| 1 | supplied-image |\n| 2 | no-image |\n\n"
+            "### Slide 1\n- Supplied file: assets/missing.jpg\n",
+            encoding="utf-8",
+        )
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("supplied image exists in the task directory", result.stdout)
 
     def test_qualitative_slide_cannot_claim_data_layout(self):
         state = valid_state()
@@ -518,6 +607,44 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(task, "deliver")
         self.assertEqual(result.returncode, 2)
         self.assertIn("PPTX has not changed since delivery audit", result.stdout)
+
+    def test_live_html_delivery_requires_playback_proof_and_current_file_hash(self):
+        state = valid_state()
+        intake = state["decision"]["intentQuestionnaire"]
+        intake["schemaVersion"] = 2
+        intake["responses"].insert(-1, {
+            "id": "designBoldness", "batch": 3,
+            "question": "How bold should the design be?", "answer": "Experimental", "level": 5,
+            "source": "creator-confirmed", "evidence": "Creator reply after batch 3",
+        })
+        intake["batches"][2]["questionIds"] = [
+            "storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle",
+        ]
+        state["decision"]["phase2"].update({
+            "designBoldness": {"level": 5, "profile": "experimental"},
+            "motionDelivery": {"mode": "pptx-plus-live-html", "creatorConfirmed": True, "evidence": "Creator approved live HTML."},
+        })
+        state["execution"]["slides"][0]["compositionPattern"] = "P14"
+        state["execution"]["slides"][1]["compositionPattern"] = "P03"
+        state["delivery"]["liveHtml"] = {
+            "output": "live-presentation.html",
+            "playbackAudit": {"result": "pass", "motionObserved": False, "htmlSha256": "", "notes": "Playback reviewed."},
+        }
+        task = self.write_task(state)
+        live_html = task / "live-presentation.html"
+        live_html.write_text("<canvas></canvas>", encoding="utf-8")
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["liveHtml"]["playbackAudit"]["htmlSha256"] = hashlib.sha256(live_html.read_bytes()).hexdigest()
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("observed motion", result.stdout)
+        live_html.write_text("<canvas>changed</canvas>", encoding="utf-8")
+        persisted["delivery"]["liveHtml"]["playbackAudit"]["motionObserved"] = True
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("live HTML has not changed since playback audit", result.stdout)
 
 
 if __name__ == "__main__":

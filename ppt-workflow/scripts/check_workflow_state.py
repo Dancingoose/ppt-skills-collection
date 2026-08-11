@@ -150,6 +150,33 @@ def check_image_sourcing_plan(phase2, task_dir, page_count, v):
               "image sourcing plan covers every approved slide exactly once")
     v.require(all(decision in {"supplied-image", "web-search", "no-image"} for decision in page_decisions.values()),
               "image sourcing plan uses supported per-slide decisions")
+    for page, decision in page_decisions.items():
+        detail = re.search(rf"(?ms)^###\s*(?:Slide|Page)\s+{page}\b(.*?)(?=^###\s*(?:Slide|Page)\s+\d+\b|\Z)", content)
+        detail_text = detail.group(1) if detail else ""
+        if decision == "web-search":
+            v.require(bool(re.search(r"(?im)^\s*-\s*Candidate URL:\s*https?://\S+", detail_text)),
+                      f"image sourcing plan slide {page} records a web candidate URL")
+            v.require(bool(re.search(r"(?im)^\s*-\s*License:\s*\S+", detail_text)),
+                      f"image sourcing plan slide {page} records a web image license")
+            v.require(bool(re.search(r"(?im)^\s*-\s*Attribution:\s*\S+", detail_text)),
+                      f"image sourcing plan slide {page} records web image attribution")
+            local_file = re.search(r"(?im)^\s*-\s*Local file:\s*(\S+)", detail_text)
+            v.require(local_file is not None,
+                      f"image sourcing plan slide {page} records a downloaded local file")
+            if local_file:
+                local_path = task_artifact_path(task_dir, local_file.group(1))
+                v.require(local_path is not None and local_path.is_file(),
+                          f"image sourcing plan slide {page} downloaded web image exists in the task directory")
+            v.require(bool(re.search(r"(?im)^\s*-\s*Approval:\s*creator-approved\s*$", detail_text)),
+                      f"image sourcing plan slide {page} has creator approval for its web image")
+        elif decision == "supplied-image":
+            supplied_file = re.search(r"(?im)^\s*-\s*(?:Supplied file|Local file|File path):\s*(\S+)", detail_text)
+            v.require(supplied_file is not None,
+                      f"image sourcing plan slide {page} records its supplied image path")
+            if supplied_file:
+                supplied_path = task_artifact_path(task_dir, supplied_file.group(1))
+                v.require(supplied_path is not None and supplied_path.is_file(),
+                          f"image sourcing plan slide {page} supplied image exists in the task directory")
 
 
 def check_prep(state, task_dir, v):
@@ -281,6 +308,8 @@ def check_decision(state, task_dir, v):
         v.require(motion.get("creatorConfirmed") is True,
                   "decision motion delivery tradeoff is creator-confirmed")
         v.value(motion, "evidence", "decision motion delivery records creator confirmation evidence")
+        v.require(boldness.get("level") != 5 or motion.get("mode") == "pptx-plus-live-html",
+                  "experimental design boldness requires a playable live HTML companion")
     passport = decision.get("passport", {})
     for key in ("theme", "accent", "background", "titleFont", "bodyFont", "style"):
         v.value(passport, key, f"decision.passport.{key} is non-empty")
@@ -449,6 +478,9 @@ def check_execution(state, task_dir, v):
             v.require(composition in COMPOSITION_PATTERNS,
                       f"slide {slide_id} records a supported composition pattern")
             composition_patterns.append(composition)
+            v.require(composition not in {"P14", "P15"}
+                      or state.get("decision", {}).get("phase2", {}).get("motionDelivery", {}).get("mode") == "pptx-plus-live-html",
+                      f"slide {slide_id} live composition requires a playable live HTML companion")
         effect = item.get("visualEffect", {})
         v.require(effect.get("status") in {"applied", "skipped"}, f"slide {slide_id} visual effect decision exists")
         v.value(effect, "reason", f"slide {slide_id} visual effect has a reason")
