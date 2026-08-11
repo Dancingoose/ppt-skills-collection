@@ -34,7 +34,7 @@
         {"batch": 3, "questionIds": ["storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle"], "creatorConfirmation": "[TBD: creator response after batch 3]"}
       ]
     },
-    "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none", "imageSourcingPlan": {"artifact": "image-sourcing-plan.md"}, "designBoldness": {"level": 0, "profile": "[TBD]"}},
+    "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none", "imageSourcingPlan": {"artifact": "image-sourcing-plan.md"}, "designBoldness": {"level": 0, "profile": "[TBD]"}, "motionDelivery": {"mode": "[TBD: pptx-static or pptx-plus-live-html]", "creatorConfirmed": false, "evidence": "[TBD: creator response reference]"}},
     "passport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial", "backgroundStrategy": "rhythmic", "primaryBackgroundMode": "light"},
     "antiTemplateReview": {"reviewer": "ppt-workflow-review", "skill": "ppt-workflow-review", "artifact": "anti-template-review.json", "result": "pass", "notes": "No default card stack or unsuitable type. The artifact records intent, evidence, theme, typography, and layout review."},
     "preview": {"html": "preview.html", "slideIds": [1, 2], "result": "approved", "notes": "The creator approved the cover and representative data page before full expansion."}
@@ -51,5 +51,5 @@
     "colorContinuityReview": {"skill": "ppt-workflow-review", "artifact": "color-continuity-review.json", "result": "pass", "reviewedSlides": [1, 2], "htmlSha256": "[SHA-256 of the reviewed execution HTML]", "notes": "Reviewed every slide in sequence. The light and dark systems retain their specified base color, visual temperature, and dominant surface treatment; no page creates a false background shift."},
     "independentReview": {"result": "pass", "notes": "No overlap, overflow, or contrast issue."}
   },
-  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true, "output": "example.pptx", "audit": {"result": "pass", "reviewedPages": 2, "pptxSha256": "[SHA-256 of the audited PPTX]", "notes": "Reviewed HTML/PPT comparisons and resolved all findings."}}
+  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true, "output": "example.pptx", "audit": {"result": "pass", "reviewedPages": 2, "pptxSha256": "[SHA-256 of the audited PPTX]", "notes": "Reviewed HTML/PPT comparisons and resolved all findings."}, "liveHtml": {"output": "[Required only for pptx-plus-live-html]", "playbackAudit": {"result": "pass", "motionObserved": true, "htmlSha256": "[SHA-256 of the reviewed live HTML]", "notes": "Observed the selected effects playing at the native canvas size."}}}
 }

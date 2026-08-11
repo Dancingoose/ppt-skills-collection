@@ -273,6 +273,14 @@ def check_decision(state, task_dir, v):
                              if isinstance(item, dict) and item.get("id") == "designBoldness"), None)
         v.require(boldness.get("level") == intake_level,
                   "decision design boldness exactly matches the creator-confirmed intake level")
+        motion = phase2.get("motionDelivery", {})
+        v.require(isinstance(motion, dict), "decision motion delivery choice is recorded")
+        motion = motion if isinstance(motion, dict) else {}
+        v.require(motion.get("mode") in {"pptx-static", "pptx-plus-live-html"},
+                  "decision motion delivery mode is supported")
+        v.require(motion.get("creatorConfirmed") is True,
+                  "decision motion delivery tradeoff is creator-confirmed")
+        v.value(motion, "evidence", "decision motion delivery records creator confirmation evidence")
     passport = decision.get("passport", {})
     for key in ("theme", "accent", "background", "titleFont", "bodyFont", "style"):
         v.value(passport, key, f"decision.passport.{key} is non-empty")
@@ -517,6 +525,23 @@ def check_execution(state, task_dir, v):
 def check_delivery(state, task_dir, v):
     check_intent(state, task_dir, v)
     delivery = state.get("delivery", {})
+    phase2 = state.get("decision", {}).get("phase2", {})
+    intake_schema = state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion")
+    if intake_schema == 2 and phase2.get("motionDelivery", {}).get("mode") == "pptx-plus-live-html":
+        live = delivery.get("liveHtml", {})
+        v.require(isinstance(live, dict), "live HTML delivery is recorded")
+        live = live if isinstance(live, dict) else {}
+        live_name = v.value(live, "output", "live HTML output is recorded")
+        live_path = task_artifact_path(task_dir, live_name)
+        v.require(live_path is not None and live_path.is_file(), "live HTML output exists")
+        playback = live.get("playbackAudit", {})
+        v.require(playback.get("result") in {"pass", "revised"}, "live HTML playback audit has a result")
+        v.require(playback.get("motionObserved") is True, "live HTML playback audit observed motion")
+        v.value(playback, "notes", "live HTML playback audit has notes")
+        reviewed_hash = v.value(playback, "htmlSha256", "live HTML playback audit records the reviewed hash")
+        actual_hash = hashlib.sha256(live_path.read_bytes()).hexdigest() if live_path and live_path.is_file() else ""
+        v.require(normalized_sha256(reviewed_hash) == actual_hash,
+                  "live HTML has not changed since playback audit")
     v.require(delivery.get("converterHealthChecked") is True, "converter health check is recorded")
     v.require(delivery.get("canvasRasterizationAcknowledged") is True, "rasterization tradeoff is acknowledged")
     missing = [name for name in ("playwright", "pptx", "lxml", "fontTools", "PIL") if importlib.util.find_spec(name) is None]

@@ -210,6 +210,9 @@ class WorkflowStateTests(unittest.TestCase):
             "storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle",
         ]
         state["decision"]["phase2"]["designBoldness"] = {"level": 4, "profile": "bold"}
+        state["decision"]["phase2"]["motionDelivery"] = {
+            "mode": "pptx-static", "creatorConfirmed": True, "evidence": "Creator selected static PPTX.",
+        }
         state["execution"]["slides"][0]["compositionPattern"] = "P10"
         state["execution"]["slides"][1]["compositionPattern"] = "P03"
         task = self.write_task(state)
