@@ -42,7 +42,7 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 
 同一任务可在一次盘点中传入多个本地文件并重复使用 `--url`；清单必须保留每份材料的独立来源、提取方法、文字、表格和警告，不能把它们合并为无来源的摘要。
 
-产出：源内容全文 + 图片资源清单 + 核心信息一句话总结。将产出写入任务文件夹的 **`content-inventory.md`** 和 **`workflow-state.json`**。默认任务目录为 `<workspace_root>/workflow-runs/<任务名>/`；需要跨 session 保留时，改用用户确认的持久目录。
+产出：源内容全文 + 图片资源清单 + 核心信息一句话总结。将产出写入任务文件夹的 **`content-inventory.md`** 和 **`workflow-state.json`**。默认任务目录为 `<workspace_root>/workflow-runs/<任务名>/`；需要跨 session 保留时，改用用户确认的持久目录。对需要非数据配图但没有用户提供素材的页面，另写 `image-sourcing-plan.md`：要么登记可授权网络检索方案，要么登记 `no-image` 版式；不生成、不索取、也不使用 AI 生成图。
 
 > ⚠️ 不得假设固定盘符或 session 临时目录。`content-inventory.md` 与 `workflow-state.json` 是跨层物理载体；跨 session 共享时记录并使用绝对路径。`workflow-state.json` 从 `ppt-workflow/templates/workflow-state.example.json` 创建，所有字段必须有真实非空证据。
 
@@ -243,7 +243,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 1. 源素材是否足以支撑承诺的页数和要点？不够 → 停下来问用户补素材，或先做事实调研/补资料
 2. 数据页的数字有没有来源？每个数字主张都要能归属（引用来源）
 3. 用户选了「扩展补充」内容处理方式 → 确认扩展的方向和边界，不凭空编造事实
-4. 有缺失的图/截图/Logo → 在选版式前标记占位符，不让缺素材拖慢排版
+4. 有缺失的非数据图/截图/Logo → 在选版式前写入 `image-sourcing-plan.md`：逐页给出用途、检索关键词、候选平台、候选 URL、许可证状态和所需比例；若无法取得许可明确且匹配的网络素材，明确登记 `no-image` 并选择无图版式。不得用 AI 生成图或无来源占位图代替。ECharts 数据图表不属于此流程。
 5. **仅口述主题无源文件 → 先做 WebSearch 收集事实/数据/来源，写入 content-inventory.md**
 
 > 素材不够硬撑 = 返工。先核实再选版式，比选完版式发现缺东西回来改快得多。
@@ -450,7 +450,7 @@ Read <collection_root>/references/canvas-formats.md        # 画布规格 + 非1
 Read <collection_root>/references/design-system.md         # token 基线和主题目录
 Read <collection_root>/references/theme-tokens.md          # 选定主题的完整 :root CSS token
 Read <collection_root>/references/layout-library.md        # 41 布局选版式（含选版式决策表，选版式时按需跳读）
-Read <collection_root>/references/image-generation.md      # 配图流程（按需）
+Read <collection_root>/references/web-image-sourcing.md    # 网络配图或无图的决策与许可记录
 Skill("axi-front-design")                       # 预览→展开
 Skill("ppt-visual-effects")                     # 逐页增强（逐页扫描，加载一次即可）
 
