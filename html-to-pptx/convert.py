@@ -110,6 +110,7 @@ def convert(html_path: Path, out_path: Path, keep_screenshots: bool, embed_fonts
             do_preflight: bool = True,
             do_visual_audit: bool = True,
             install_user_fonts: bool = False,
+            embed_video_motion: bool = False,
             only_indices: set[int] | None = None):
     html_path = html_path.resolve()
     out_path = out_path.resolve()
@@ -133,6 +134,15 @@ def convert(html_path: Path, out_path: Path, keep_screenshots: bool, embed_fonts
     with tempfile.TemporaryDirectory(prefix="h2p_") as tmp:
         tmp_dir = Path(tmp)
         intermediate_pptx = tmp_dir / "no_fonts.pptx"
+        slide_videos = []
+
+        # Record declared non-native motion in a separate browser session. The
+        # measurement session remains free to freeze its final static state.
+        if embed_video_motion:
+            from video_motion import record_marked_slide_videos
+            t0 = time.perf_counter()
+            slide_videos = record_marked_slide_videos(html_path, tmp_dir / "video_motion")
+            print(f"[video]    recorded {len(slide_videos)} marked slide(s) in {time.perf_counter()-t0:.2f}s")
 
         # anchor_json 控制 measurements.json + HTML 参考图 + svg 资源的落盘位置
         # audit 开启时强制落 audit cache dir，让 measurement + HTML 参考图 + svg 资源在轮间持久化
@@ -231,6 +241,14 @@ def convert(html_path: Path, out_path: Path, keep_screenshots: bool, embed_fonts
         else:
             shutil.copy(intermediate_pptx, out_path)
             print("[embed]    跳过")
+
+        # Video is embedded by PowerPoint itself, producing the media
+        # relationships it recognizes on the target Windows runtime.
+        if slide_videos:
+            from video_motion import embed_slide_videos
+            t0 = time.perf_counter()
+            embedded = embed_slide_videos(out_path, slide_videos)
+            print(f"[video]    embedded on slides {embedded} in {time.perf_counter()-t0:.2f}s")
 
         # 4) 自检（默认开启）— 自检异常不影响 pptx 产出
         self_check_result = None
@@ -375,6 +393,9 @@ def main():
                          "Linux → ~/.local/share/fonts/ + fc-cache。"
                          "WPS Office 不读 pptx 里裸 TTF 嵌入字体，装到系统后 WPS 才能正确渲染。"
                          "**SKILL.md 要求 agent 在调用前必须先 ask 用户**——这是改用户系统行为")
+    ap.add_argument("--embed-video-motion", action="store_true",
+                    help="Record each slide marked data-pptx-video as an offline H.264 MP4 and embed it in the PPTX. "
+                         "Requires FFmpeg, Windows PowerPoint, and pywin32. The media plays inside PowerPoint; no browser companion is produced.")
     args = ap.parse_args()
 
     if args.cleanup:
@@ -441,6 +462,7 @@ def main():
             do_preflight=not args.no_preflight,
             do_visual_audit=not args.no_visual_audit,
             install_user_fonts=args.install_user_fonts,
+            embed_video_motion=args.embed_video_motion,
             only_indices=only_indices)
 
 

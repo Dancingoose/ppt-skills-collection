@@ -77,6 +77,32 @@ The generated nodes are `p:animMotion`, `p:animScale`, `p:animRot`, and
 independent PresentationML writer; external SVG/SMIL converters are useful
 references but are not copied because their licenses may not be compatible.
 
+## Embedded Video Motion
+
+For WebGL, Canvas, shaders, particles, video compositing, or arbitrary
+JavaScript that cannot be represented as native PresentationML, mark the whole
+slide with `data-pptx-video` and convert with `--embed-video-motion`:
+
+```html
+<section class="slide" data-pptx-slide data-pptx-video
+  data-pptx-video-duration="2400"
+  data-pptx-video-fps="24"
+  data-pptx-video-trigger="auto">
+  <!-- Three.js, Canvas, shader, or other non-native motion -->
+</section>
+```
+
+The converter records the declared slide, encodes an H.264 MP4, and asks
+PowerPoint to embed it as a full-slide media object. Playback happens entirely
+inside PowerPoint and does not open a browser or require network access.
+`data-pptx-video-trigger="click"` leaves playback under the presenter's click;
+`auto` starts it on slide entry. `data-pptx-video-loop="true"` enables looping.
+
+This mode requires FFmpeg with `libx264`, Windows PowerPoint, and `pywin32`.
+Set `PPT_FFMPEG_EXECUTABLE` when FFmpeg is not on `PATH`. The visual result is
+preserved, but the embedded motion is a video rather than editable or
+interactive PowerPoint objects.
+
 ## Workflow Gate
 
 Record native motion in `effects-scan.json` as `type: "native-motion"` and

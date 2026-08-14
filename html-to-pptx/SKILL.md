@@ -82,4 +82,8 @@ captures supported CSS/WAAPI motion and writes native PowerPoint timing,
 including composable motion paths, scale, rotation, and click/with/after
 sequencing. Read `references/native-motion.md` before authoring or reviewing
 an animated deck. Use `data-pptx-motion` for a single effect and
-`data-pptx-motion-plan` for multi-stage choreography.
+`data-pptx-motion-plan` for multi-stage choreography. For non-native WebGL,
+Canvas, shader, or arbitrary JavaScript animation that must play inside the
+PPTX, use `data-pptx-video` on the slide and convert with
+`--embed-video-motion`; it embeds an offline MP4 rather than launching a
+browser companion.

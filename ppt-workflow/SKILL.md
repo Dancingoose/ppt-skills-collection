@@ -263,7 +263,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 6. **P0 规则：token 一致性**——所有颜色/圆角/阴影走 CSS 变量；叙事风（A）可用圆角/阴影，事实风（B）必须直角无阴影（`--radius:0; --shadow:none`）
 7. **反俗套字体检查（修补时机）**：从 theme-tokens.md 复制 CSS `:root` 变量到 HTML 时**同步**检查 `--font-display`——如果回退链含 Inter/Roboto，在复制的同时替换为 `'Noto Sans SC','Microsoft YaHei',sans-serif`。避免"先复制不改、后面再改"的两段式修补。上游原始 token 值在 theme-tokens.md 中保持不变（数据溯源）。
 
-在 Phase 2 明确记录 `motionDelivery`：`pptx-static` 代表只有静态 PPTX 定格；`pptx-plus-live-html` 才能交付真实可播放动效，并且**同时必须交付、审计静态 PPTX 回退文件**。必须由创作者确认该取舍并记录证据。第五档“实验性”以及 P14/P15 构图强制选择后者，并在交付前实际播放、记录观察到运动的审计与 HTML SHA-256；Canvas/ECharts 的导出截图不得称为 PPTX 动效。
+在 Phase 2 明确记录 `motionDelivery`：`pptx-static` 代表只有静态 PPTX 定格；`pptx-plus-video` 将无法原生映射的 HTML 动效录制为 H.264 MP4 并内嵌进 PPTX，离线播放时不弹出浏览器；`pptx-plus-live-html` 才保留实时交互。必须由创作者确认该取舍并记录证据。第五档“实验性”以及 P14/P15 构图必须选择可播放的 `pptx-plus-video` 或 `pptx-plus-live-html`。视频模式须在交付前实际验证 PowerPoint 媒体对象和播放设置；Canvas/ECharts 的单帧截图不得称为 PPTX 动效。
 8. 按布局的线框 + 结构 + 尺寸规则实现，遵守「主题节奏硬规则」（禁 3 页连同样式）和「反 AI 俗套」
 9. **8 页+ deck 先画节奏表再动手**（布局库「8 页节奏模板」）
 

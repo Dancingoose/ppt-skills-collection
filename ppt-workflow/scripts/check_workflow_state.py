@@ -321,13 +321,13 @@ def check_decision(state, task_dir, v):
         motion = phase2.get("motionDelivery", {})
         v.require(isinstance(motion, dict), "decision motion delivery choice is recorded")
         motion = motion if isinstance(motion, dict) else {}
-        v.require(motion.get("mode") in {"pptx-static", "pptx-plus-live-html"},
+        v.require(motion.get("mode") in {"pptx-static", "pptx-plus-video", "pptx-plus-live-html"},
                   "decision motion delivery mode is supported")
         v.require(motion.get("creatorConfirmed") is True,
                   "decision motion delivery tradeoff is creator-confirmed")
         v.value(motion, "evidence", "decision motion delivery records creator confirmation evidence")
-        v.require(boldness.get("level") != 5 or motion.get("mode") == "pptx-plus-live-html",
-                  "experimental design boldness requires a playable live HTML companion")
+        v.require(boldness.get("level") != 5 or motion.get("mode") in {"pptx-plus-video", "pptx-plus-live-html"},
+                  "experimental design boldness requires playable video or live HTML delivery")
     passport = decision.get("passport", {})
     for key in ("theme", "accent", "background", "titleFont", "bodyFont", "style"):
         v.value(passport, key, f"decision.passport.{key} is non-empty")
@@ -512,8 +512,9 @@ def check_execution(state, task_dir, v):
                 v.require(image_record.get("decision") in {"supplied-image", "web-search"},
                           f"slide {slide_id} photo-dependent composition has an approved image decision")
             v.require(composition not in {"P14", "P15"}
-                      or state.get("decision", {}).get("phase2", {}).get("motionDelivery", {}).get("mode") == "pptx-plus-live-html",
-                      f"slide {slide_id} live composition requires a playable live HTML companion")
+                      or state.get("decision", {}).get("phase2", {}).get("motionDelivery", {}).get("mode")
+                      in {"pptx-plus-video", "pptx-plus-live-html"},
+                      f"slide {slide_id} live composition requires playable video or live HTML delivery")
         effect = item.get("visualEffect", {})
         v.require(effect.get("status") in {"applied", "skipped"}, f"slide {slide_id} visual effect decision exists")
         v.value(effect, "reason", f"slide {slide_id} visual effect has a reason")
@@ -527,6 +528,7 @@ def check_execution(state, task_dir, v):
                 "spline": r"spline-viewer",
                 "canvas": r"<canvas",
                 "native-motion": r"data-pptx-motion|@keyframes|\banimation\s*:|\.animate\s*\(",
+                "embedded-video": r"data-pptx-video",
             }.get(effect_type)
             v.require(signal is not None and bool(re.search(signal, html, re.I)), f"slide {slide_id} applied effect is present in HTML")
     if intake_schema == 2 and composition_patterns:

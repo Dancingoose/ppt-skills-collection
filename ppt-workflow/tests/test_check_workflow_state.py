@@ -272,7 +272,7 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertIn("exactly 12 responses", result.stdout)
         self.assertIn("includes every required question exactly once", result.stdout)
 
-    def test_experimental_boldness_requires_live_html_delivery(self):
+    def test_experimental_boldness_requires_playable_motion_delivery(self):
         state = valid_state()
         intake = state["decision"]["intentQuestionnaire"]
         intake["schemaVersion"] = 2
@@ -292,7 +292,7 @@ class WorkflowStateTests(unittest.TestCase):
         state["execution"]["slides"][1]["compositionPattern"] = "P03"
         result = self.check(self.write_task(state), "decision")
         self.assertEqual(result.returncode, 2)
-        self.assertIn("experimental design boldness requires a playable live HTML companion", result.stdout)
+        self.assertIn("experimental design boldness requires playable video or live HTML delivery", result.stdout)
 
     def test_live_composition_rejects_a_static_only_delivery_choice(self):
         state = valid_state()
@@ -314,7 +314,7 @@ class WorkflowStateTests(unittest.TestCase):
         state["execution"]["slides"][1]["compositionPattern"] = "P03"
         result = self.check(self.write_task(state), "exec")
         self.assertEqual(result.returncode, 2)
-        self.assertIn("live composition requires a playable live HTML companion", result.stdout)
+        self.assertIn("live composition requires playable video or live HTML delivery", result.stdout)
 
     def test_intent_gate_rejects_duplicate_or_missing_question_ids(self):
         state = valid_state()
@@ -517,6 +517,18 @@ class WorkflowStateTests(unittest.TestCase):
         }
         html = HTML.replace(
             "data-slide-id='2'", "data-pptx-motion='fade' data-slide-id='2'",
+        )
+        result = self.check(self.write_task(state, html), "exec")
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_execution_accepts_embedded_video_with_html_signal(self):
+        state = valid_state()
+        state["execution"]["slides"][1]["visualEffect"] = {
+            "status": "applied", "type": "embedded-video",
+            "reason": "The WebGL scene is delivered as an embedded movie.",
+        }
+        html = HTML.replace(
+            "data-slide-id='2'", "data-pptx-video data-slide-id='2'",
         )
         result = self.check(self.write_task(state, html), "exec")
         self.assertEqual(result.returncode, 0, result.stdout)
