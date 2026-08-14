@@ -298,6 +298,8 @@ def check_intent(state, task_dir, v):
                     f"intent batch {batch!r} records the creator's response evidence")
         v.require([batch_record.get("batch") if isinstance(batch_record, dict) else None for batch_record in batches] == expected_batch_order,
                   "intent batches are recorded in creator-response order")
+    for batch in expected_batch_order:
+        v.require(batch in seen_batches, f"intent batch {batch} is recorded")
     v.require(seen_batches == set(expected_batch_order),
               "intent questionnaire records every required batch exactly once")
 

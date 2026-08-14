@@ -273,6 +273,27 @@ class WorkflowStateTests(unittest.TestCase):
             result = self.check(task, layer)
             self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_v3_intake_rejects_an_incomplete_answer_set(self):
+        state = valid_v3_state()
+        state["decision"]["intentQuestionnaire"]["responses"].pop()
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("intent questionnaire records exactly 13 responses", result.stdout)
+
+    def test_v3_intake_rejects_a_missing_fourth_batch(self):
+        state = valid_v3_state()
+        state["decision"]["intentQuestionnaire"]["batches"].pop()
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("intent batch 4 is recorded", result.stdout)
+
+    def test_v3_intake_rejects_a_non_sample_confirmation_final_question(self):
+        state = valid_v3_state()
+        state["decision"]["intentQuestionnaire"]["responses"][-1]["id"] = "designProfileSelection"
+        result = self.check(self.write_task(state), "intent")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("intent response 'designProfileSelection' has a unique required question id", result.stdout)
+
     def test_v2_intake_binds_boldness_to_composition_choices(self):
         state = valid_state()
         intake = state["decision"]["intentQuestionnaire"]
