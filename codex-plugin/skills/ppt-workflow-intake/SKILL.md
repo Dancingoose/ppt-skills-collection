@@ -5,7 +5,7 @@ description: Collect and record creator-confirmed intent for a PPT Workflow Stud
 
 # PPT Workflow Intent Intake
 
-Use the collection named by `PPT_WORKFLOW_ROOT`, or `D:\GPTworkspace\ppt-skills-collection`. Work inside the task directory containing `workflow-state.json` and `content-inventory.md`. Read `references/material-driven-questioning.md` before asking questions.
+Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Work inside the task directory containing `workflow-state.json` and `content-inventory.md`. Read `references/material-driven-questioning.md` before asking questions.
 
 1. Do not create `preview.html`, design directions, page plans beyond the material inventory, `design.html`, or a PPTX until this intake is complete. Material may inform recommendations and answer choices, but never replace a creator response.
 2. Ask exactly four questions in each batch, then wait for the creator's response before asking the next batch. Do not infer, assume, or silently fill an unanswered item. A creator may choose a recommendation, give a custom answer, or explicitly answer a question already suggested by the material.

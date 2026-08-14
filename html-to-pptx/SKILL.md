@@ -13,7 +13,7 @@ description: "将 HTML 幻灯片转成可编辑 .pptx。文本→原生文本框
 - "汇报现场不方便放浏览器，想要 ppt 文件"
 - 已有 HTML 文件路径 + 提到 ppt / pptx / 演示 / 幻灯片
 
-> ⚠️ **首次使用前**：本 skill 需要 `convert.py` 渲染脚本。请从 [上游仓库](https://github.com/Hasasasa/claude-skill-html-to-pptx) 获取完整脚本文件放入本目录。
+> ⚠️ **首次使用前**：本封包已包含 `convert.py`。先运行 `scripts/bootstrap-runtime.ps1` 安装运行时，再进行首次转换。
 
 ## 调用
 

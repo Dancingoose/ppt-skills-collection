@@ -1,15 +1,14 @@
 param(
-    [string]$WorkspaceRoot = (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
+    [string]$CollectionRoot = (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
 )
 
 $ErrorActionPreference = 'Stop'
-$collectionRoot = Join-Path $WorkspaceRoot 'ppt-skills-collection'
 $requirements = Join-Path $collectionRoot 'html-to-pptx\requirements.txt'
-$venv = Join-Path $WorkspaceRoot '.venv'
+$venv = Join-Path $collectionRoot '.venv'
 $python = Join-Path $venv 'Scripts\python.exe'
 
 if (-not (Test-Path -LiteralPath $requirements)) {
-    throw "Cannot find requirements at $requirements. Pass the workspace root containing ppt-skills-collection."
+    throw "Cannot find requirements at $requirements. Pass the collection root that contains html-to-pptx."
 }
 if (-not (Test-Path -LiteralPath $python)) {
     & py -3 -m venv $venv

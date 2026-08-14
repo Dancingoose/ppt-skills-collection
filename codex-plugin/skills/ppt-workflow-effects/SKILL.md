@@ -5,7 +5,7 @@ description: Evaluate every completed PPT HTML slide for an appropriate visual e
 
 # PPT Workflow Effects
 
-Use the collection named by `PPT_WORKFLOW_ROOT`, or `D:\GPTworkspace\ppt-skills-collection`. Read `ppt-visual-effects/SKILL.md` and the affected HTML slides before making any decision.
+Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Read `ppt-visual-effects/SKILL.md` and the affected HTML slides before making any decision.
 
 1. Scan every slide exactly once after its HTML structure is complete. Consider effects only when they improve the meaning: sourced charts for real data, Canvas for a suitable expressive motif, or a restrained motion/3D treatment for genuinely spatial or energetic content.
 2. Skip effects for text-led, source-image-led, dense, or static information slides when an effect would weaken inspection, readability, or delivery reliability. Do not inject an effect merely to satisfy the scan.

@@ -47,6 +47,12 @@
 - Canvas/WebGL设 `pointer-events:none`，slide隐藏时暂停动画
 - 纯文字排版页不加
 
+## Card-grid rhythm gate
+
+- For decks of 10+ pages, use equal-card grid layouts (`B4`, `B16`, `B19`, `C8`) on no more than 20% of pages.
+- Separate two equal-card grid pages with at least three pages that use a different visual archetype.
+- When multiple sections contain parallel facts, recast one as a comparison, process, hierarchy, matrix, timeline, or editorial argument rather than repeating a 3/4/6-card grid.
+
 ## 交付门禁
 - convert.py 存在？不存在→先告知用户+先交HTML
 - Canvas/WebGL→PPTX降级为静态截图（deco_snapshot档，使用已激活 slide 的原生画布尺寸 PNG）

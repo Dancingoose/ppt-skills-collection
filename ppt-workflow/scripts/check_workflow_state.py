@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 DATA_LAYOUTS = {"A3", "B2", "B6", "B7", "B18", "B20", "B21", "B22"}
+CARD_GRID_LAYOUTS = {"B4", "B16", "B19", "C8"}
 LAYOUT_RE = re.compile(r"^[ABC](?:[1-9]|1[0-9]|2[0-2])$")
 COMPOSITION_PATTERNS = {f"P{index:02d}" for index in range(1, 16)}
 BOLD_COMPOSITION_PATTERNS = {"P10", "P11", "P12", "P13", "P14", "P15"}
@@ -541,6 +542,13 @@ def check_execution(state, task_dir, v):
             used_bold = sum(pattern in BOLD_COMPOSITION_PATTERNS for pattern in composition_patterns)
             v.require(used_bold >= minimum_bold,
                       "bold design uses bold or experimental compositions on at least 20 percent of slides")
+    if len(slides) >= 10:
+        grid_indices = [index for index, item in enumerate(slides) if item.get("layout") in CARD_GRID_LAYOUTS]
+        maximum_grids = max(1, len(slides) // 5)
+        v.require(len(grid_indices) <= maximum_grids,
+                  "long deck limits equal-card grid layouts to 20 percent of pages")
+        v.require(all(later - earlier >= 4 for earlier, later in zip(grid_indices, grid_indices[1:])),
+                  "equal-card grid layouts are separated by at least three non-grid pages")
     colors = [bool(item.get("dark")) for item in slides]
     if passport.get("backgroundStrategy") == "uniform":
         expected_dark = passport.get("primaryBackgroundMode") == "dark"

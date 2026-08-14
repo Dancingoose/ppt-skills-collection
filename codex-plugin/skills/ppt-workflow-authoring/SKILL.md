@@ -5,7 +5,7 @@ description: Build source-backed HTML slides for PPT Workflow Studio using the c
 
 # PPT Workflow Authoring
 
-Use the collection named by `PPT_WORKFLOW_ROOT`, or `D:\GPTworkspace\ppt-skills-collection`.
+Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package.
 
 1. Run `check_workflow_state.py --layer intent` and resolve every failure before authoring a preview or full deck. Read `references/quick-reference-card.md`, then only the selected theme block from `references/theme-tokens.md`, the chosen layouts in `references/layout-library.md`, and the native-size rule for the selected canvas in `references/canvas-formats.md`.
 2. Build `preview.html` with the cover and a representative content slide before expansion. Bind approval to `decision.preview`; do not expand a rejected or unrecorded preview.

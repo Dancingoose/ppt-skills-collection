@@ -5,7 +5,7 @@ description: Convert validated PPT Workflow Studio HTML to PPTX and audit the re
 
 # PPT Workflow Delivery
 
-Use the collection named by `PPT_WORKFLOW_ROOT`, or `D:\GPTworkspace\ppt-skills-collection`.
+Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package.
 
 1. Run `check_workflow_state.py` for intent, preparation, decision, and execution. Resolve every failure, including creator-confirmed intake, review, and effects-scan artifacts, before conversion.
 2. Confirm the runtime can render a page. On a new machine run `html-to-pptx/scripts/bootstrap-runtime.ps1`; do not claim a healthy converter from import checks alone.
