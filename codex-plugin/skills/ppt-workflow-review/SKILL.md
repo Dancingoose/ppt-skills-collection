@@ -14,6 +14,12 @@ Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive i
 1. Confirm `check_workflow_state.py --layer intent` passes before review. Read the inventory, the creator-confirmed `decision.intentQuestionnaire`, Phase 1/2 decision fields, locked or proposed passport, and the relevant portions of `references/quick-reference-card.md`, `references/layout-library.md`, and `references/theme-tokens.md`.
 2. Review five areas: `intent`, `evidence`, `theme`, `typography`, and `layouts`. Verify every material claim has a source, the proposed canvas serves the audience, the theme does not contradict the source or requested tone, typography is legible and not a default fallback, and each proposed layout fits its information shape. For decks of 10+ pages, inspect visual archetypes as well as layout IDs: equal-card grid layouts (`B4`, `B16`, `B19`, `C8`) may occupy no more than 20% of pages and must be separated by at least three non-grid pages. Recast repeated parallel-fact pages as a comparison, process, hierarchy, matrix, timeline, or editorial argument. Lock `passport.backgroundStrategy` as `uniform` or `rhythmic` and record its `primaryBackgroundMode`; do not leave background variation to implementation taste.
 3. Identify concrete defects and correct the passport or page plan before preview. Do not merely name a generic design skill as proof of review.
+
+For V3, also verify that the three visual samples use three different
+composition families (for example grid, asymmetric editorial, and sequence),
+not merely different colors or labels. Record the selected background strategy
+and primary mode in the design-profile review. A uniform light profile must not
+contain dark execution pages.
 4. Write `<task>/anti-template-review.json` before the preview decision gate:
 
 ```json

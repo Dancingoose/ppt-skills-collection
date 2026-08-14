@@ -64,6 +64,10 @@ PAGE_ARCHETYPES = {
     "hero", "context", "evidence", "data", "comparison", "process", "transition",
     "recommendation", "action",
 }
+COMPOSITION_FAMILIES = {
+    "modular-grid", "asymmetric-columns", "full-bleed-sequence", "editorial-stack",
+    "process-flow", "matrix", "timeline", "single-axis", "comparison-split",
+}
 
 
 def intent_questions_for_schema(schema_version):
@@ -339,6 +343,7 @@ def check_design_profile(decision, task_dir, v):
     required_sources = [question_id for question_id, _ in INTENT_QUESTIONS_V3[:12]]
     contract_keys = (
         "narrativeStance", "compositionGeometry", "visualTemperature", "typographicLanguage",
+        "backgroundStrategy", "primaryBackgroundMode", "compositionFamily",
     )
     candidate_ids = []
     contracts = {}
@@ -356,11 +361,20 @@ def check_design_profile(decision, task_dir, v):
         contract = contract if isinstance(contract, dict) else {}
         for key in contract_keys:
             v.value(contract, key, f"visual candidate {candidate_id} visual contract has {key}")
+        v.require(contract.get("backgroundStrategy") in {"uniform", "rhythmic"},
+                  f"visual candidate {candidate_id} background strategy is supported")
+        v.require(contract.get("primaryBackgroundMode") in {"dark", "light"},
+                  f"visual candidate {candidate_id} primary background mode is supported")
+        v.require(contract.get("compositionFamily") in COMPOSITION_FAMILIES,
+                  f"visual candidate {candidate_id} composition family is supported")
         if isinstance(candidate_id, str):
             contracts[candidate_id] = contract
             marker = rf"data-design-profile=[\"']{re.escape(candidate_id)}[\"']"
             v.require(bool(re.search(marker, preview_html)),
                       f"visual direction preview embeds candidate {candidate_id}")
+            family_marker = rf"data-composition-family=[\"']{re.escape(str(contract.get('compositionFamily')))}[\"']"
+            v.require(bool(re.search(rf"<[^>]*{marker}[^>]*{family_marker}[^>]*>", preview_html)),
+                      f"visual direction preview records candidate {candidate_id} composition family")
     v.require(len(candidate_ids) == len(set(candidate_ids)), "visual candidate ids are unique")
     for first_id, second_id in itertools.combinations(candidate_ids, 2):
         first_contract = contracts.get(first_id, {})
@@ -368,6 +382,9 @@ def check_design_profile(decision, task_dir, v):
         differences = sum(first_contract.get(key) != second_contract.get(key) for key in contract_keys)
         v.require(differences >= 3,
                   f"visual candidates {first_id} and {second_id} differ in at least 3 visual contract dimensions")
+    composition_families = [contracts[item].get("compositionFamily") for item in candidate_ids if item in contracts]
+    v.require(len(composition_families) == len(set(composition_families)),
+              "visual candidates use distinct composition families")
 
     intake = decision.get("intentQuestionnaire", {})
     completed = intake.get("completed") if isinstance(intake, dict) else None
@@ -445,6 +462,13 @@ def check_decision(state, task_dir, v):
                   "passport locks the selected design profile id")
         v.require(passport_profile.get("visualContract") == selected.get("visualContract"),
                   "passport locks the selected design profile visual contract")
+        selected_contract = selected.get("visualContract", {}) if isinstance(selected, dict) else {}
+        v.require(passport.get("backgroundStrategy") == selected_contract.get("backgroundStrategy"),
+                  "passport background strategy matches the selected visual contract")
+        v.require(passport.get("primaryBackgroundMode") == selected_contract.get("primaryBackgroundMode"),
+                  "passport primary background mode matches the selected visual contract")
+        v.require(passport_profile.get("visualContract", {}).get("compositionFamily") == selected_contract.get("compositionFamily"),
+                  "passport composition family matches the selected visual contract")
     v.require(passport.get("backgroundStrategy") in {"uniform", "rhythmic"},
               "decision.passport.backgroundStrategy is uniform or rhythmic")
     v.require(passport.get("primaryBackgroundMode") in {"dark", "light"},
@@ -637,6 +661,20 @@ def check_execution(state, task_dir, v):
                 and re.search(rf"data-archetype=[\"']{re.escape(archetype) if isinstance(archetype, str) else '(?!)'}[\"']", tag)
                 for tag in tags
             ), f"slide {slide_id} archetype is embedded in its HTML container")
+            composition_family = item.get("compositionFamily")
+            v.require(composition_family in COMPOSITION_FAMILIES,
+                      f"slide {slide_id} has a supported composition family")
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-composition-family=[\"']{re.escape(composition_family) if isinstance(composition_family, str) else '(?!)'}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} composition family is embedded in its HTML container")
+            background_mode = "dark" if bool(item.get("dark")) else "light"
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-background-mode=[\"']{background_mode}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} background mode is embedded in its HTML container")
         evidence = item.get("layoutEvidence", {})
         item_count = evidence.get("itemCount")
         v.require(isinstance(item_count, int) and item_count >= 0, f"slide {slide_id} records a layout item count")
@@ -708,7 +746,12 @@ def check_execution(state, task_dir, v):
             minimum_bold = max(1, (len(slides) + 4) // 5)
             used_bold = sum(pattern in BOLD_COMPOSITION_PATTERNS for pattern in composition_patterns)
             v.require(used_bold >= minimum_bold,
-                      "bold design uses bold or experimental compositions on at least 20 percent of slides")
+                  "bold design uses bold or experimental compositions on at least 20 percent of slides")
+    if intake_schema == 3:
+        families = [item.get("compositionFamily") for item in slides]
+        v.require(not any(families[index:index + 3] == [families[index]] * 3
+                          for index in range(max(0, len(families) - 2))),
+                  "composition families do not repeat three times consecutively")
     if len(slides) >= 10:
         grid_indices = [index for index, item in enumerate(slides) if item.get("layout") in CARD_GRID_LAYOUTS]
         maximum_grids = max(1, len(slides) // 5)

@@ -135,6 +135,8 @@ def valid_design_profile():
             "visualContract": {
                 "narrativeStance": "evidence-first", "compositionGeometry": "modular-grid",
                 "visualTemperature": "cool", "typographicLanguage": "compact-sans",
+                "backgroundStrategy": "uniform", "primaryBackgroundMode": "light",
+                "compositionFamily": "modular-grid",
             },
         },
         {
@@ -143,6 +145,8 @@ def valid_design_profile():
             "visualContract": {
                 "narrativeStance": "thesis-first", "compositionGeometry": "asymmetric-columns",
                 "visualTemperature": "warm", "typographicLanguage": "editorial-serif",
+                "backgroundStrategy": "uniform", "primaryBackgroundMode": "light",
+                "compositionFamily": "asymmetric-columns",
             },
         },
         {
@@ -151,6 +155,8 @@ def valid_design_profile():
             "visualContract": {
                 "narrativeStance": "future-state", "compositionGeometry": "full-bleed-sequence",
                 "visualTemperature": "neutral", "typographicLanguage": "display-sans",
+                "backgroundStrategy": "uniform", "primaryBackgroundMode": "light",
+                "compositionFamily": "full-bleed-sequence",
             },
         },
     ]
@@ -201,6 +207,8 @@ def valid_v3_state():
         for batch in (1, 2, 3, 4)
     ]
     state["decision"]["designProfile"] = valid_design_profile()
+    state["decision"]["passport"]["backgroundStrategy"] = "uniform"
+    state["decision"]["passport"]["primaryBackgroundMode"] = "light"
     selected = state["decision"]["designProfile"]["candidates"][1]
     state["decision"]["passport"]["designProfile"] = {
         "id": selected["id"], "visualContract": dict(selected["visualContract"]),
@@ -208,6 +216,10 @@ def valid_v3_state():
     state["execution"]["lockedPassport"] = copy.deepcopy(state["decision"]["passport"])
     state["execution"]["slides"][0]["archetype"] = "hero"
     state["execution"]["slides"][1]["archetype"] = "data"
+    state["execution"]["slides"][0]["dark"] = False
+    state["execution"]["slides"][1]["dark"] = False
+    state["execution"]["slides"][0]["compositionFamily"] = "full-bleed-sequence"
+    state["execution"]["slides"][1]["compositionFamily"] = "single-axis"
     state["execution"].update({
         "deckRhythmReview": {"skill": "ppt-workflow-review", "artifact": "deck-rhythm-review.json", "result": "pass"},
         "designProfileReview": {
@@ -220,9 +232,14 @@ def valid_v3_state():
 
 
 HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/echarts@5'></script></head><body>
-<section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark' data-archetype='hero'></section>
-<section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1' data-color-system='coastal-light' data-archetype='data'></section>
+<section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark' data-background-mode='dark' data-composition-family='full-bleed-sequence' data-archetype='hero'></section>
+<section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1' data-color-system='coastal-light' data-background-mode='light' data-composition-family='single-axis' data-archetype='data'></section>
 </body></html>"""
+
+V3_HTML = HTML.replace(
+    "class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark' data-background-mode='dark'",
+    "class='slide' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-light' data-background-mode='light'",
+).replace("data-color-system='coastal-light' data-background-mode='light' data-composition-family='single-axis'", "data-color-system='coastal-light' data-background-mode='light' data-composition-family='single-axis'")
 
 PREVIEW_HTML = """<!doctype html><html><body>
 <section class='slide' data-slide-id='1'></section>
@@ -230,9 +247,9 @@ PREVIEW_HTML = """<!doctype html><html><body>
 </body></html>"""
 
 VISUAL_DIRECTION_HTML = """<!doctype html><html><body>
-<section data-design-profile='signal-led'>Signal-led evidence</section>
-<section data-design-profile='thesis-led'>Thesis-led narrative</section>
-<section data-design-profile='momentum-led'>Momentum-led projection</section>
+<section data-design-profile='signal-led' data-composition-family='modular-grid'>Signal-led evidence</section>
+<section data-design-profile='thesis-led' data-composition-family='asymmetric-columns'>Thesis-led narrative</section>
+<section data-design-profile='momentum-led' data-composition-family='full-bleed-sequence'>Momentum-led projection</section>
 </body></html>"""
 
 CONTENT_INVENTORY = """# Content Inventory
@@ -249,12 +266,14 @@ Evidence supports a focused investment.
 
 
 class WorkflowStateTests(unittest.TestCase):
-    def write_task(self, state=None, html=HTML):
+    def write_task(self, state=None, html=None):
         directory = tempfile.TemporaryDirectory()
         task = Path(directory.name)
         if state is not None:
             (task / "workflow-state.json").write_text(json.dumps(state), encoding="utf-8")
         (task / "content-inventory.md").write_text(CONTENT_INVENTORY, encoding="utf-8")
+        if html is None:
+            html = V3_HTML if isinstance(state, dict) and state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion") == 3 else HTML
         (task / "design.html").write_text(html, encoding="utf-8")
         (task / "preview.html").write_text(PREVIEW_HTML, encoding="utf-8")
         design_profile = (state or {}).get("decision", {}).get("designProfile", {})
@@ -299,17 +318,19 @@ class WorkflowStateTests(unittest.TestCase):
                     "reviewedSlides": color_review["reviewedSlides"],
                     "htmlSha256": color_review["htmlSha256"],
                     "notes": color_review["notes"],
-                    "colorSystems": [
+                    "colorSystems": ([
+                        {"id": "coastal-light", "mode": "light", "slides": [1, 2], "baseColor": "#F2FBFA", "temperature": "cool", "dominantSurface": "foam with aqua details", "notes": "The V3 deck uses one uniform light system."},
+                    ] if state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion") == 3 else [
                         {"id": "coastal-dark", "mode": "dark", "slides": [1], "baseColor": "#10283C", "temperature": "cool", "dominantSurface": "ink with aqua details", "notes": "The cover uses the dark coastal system."},
                         {"id": "coastal-light", "mode": "light", "slides": [2], "baseColor": "#F2FBFA", "temperature": "cool", "dominantSurface": "foam with aqua details", "notes": "The content page uses the light coastal system."},
-                    ],
+                    ]),
                 }), encoding="utf-8")
             rhythm_review = state["execution"].get("deckRhythmReview")
             if isinstance(rhythm_review, dict):
                 (task / rhythm_review["artifact"]).write_text(json.dumps({
                     "schemaVersion": 1, "skill": rhythm_review["skill"], "result": rhythm_review["result"],
                     "archetypeSequence": [
-                        {"id": slide["id"], "archetype": slide.get("archetype")}
+                        {"id": slide["id"], "archetype": slide.get("archetype"), "compositionFamily": slide.get("compositionFamily")}
                         for slide in state["execution"]["slides"]
                     ],
                 }), encoding="utf-8")
@@ -373,6 +394,13 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("deck rhythm review artifact is recorded", result.stdout)
 
+    def test_v3_execution_rejects_manifest_background_mode_drift(self):
+        state = valid_v3_state()
+        state["execution"]["slides"][0]["dark"] = True
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("uniform background strategy keeps every slide", result.stdout)
+
     def test_v3_decision_rejects_fewer_than_three_visual_candidates(self):
         state = valid_v3_state()
         state["decision"]["designProfile"]["candidates"].pop()
@@ -388,6 +416,20 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "decision")
         self.assertEqual(result.returncode, 2)
         self.assertIn("visual candidates signal-led and thesis-led differ in at least 3 visual contract dimensions", result.stdout)
+
+    def test_v3_decision_rejects_duplicate_candidate_composition_families(self):
+        state = valid_v3_state()
+        state["decision"]["designProfile"]["candidates"][2]["visualContract"]["compositionFamily"] = "modular-grid"
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("visual candidates use distinct composition families", result.stdout)
+
+    def test_v3_decision_rejects_background_contract_drift(self):
+        state = valid_v3_state()
+        state["decision"]["passport"]["primaryBackgroundMode"] = "dark"
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("passport primary background mode matches the selected visual contract", result.stdout)
 
     def test_v3_decision_rejects_candidate_with_wrong_question_sources(self):
         state = valid_v3_state()

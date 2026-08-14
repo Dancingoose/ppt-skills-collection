@@ -11,6 +11,12 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 
 执行层的每页必须登记并在 HTML `.slide` 上标记页面原型：`hero`、`context`、`evidence`、`data`、`comparison`、`process`、`transition`、`recommendation` 或 `action`。十页及以上的文稿必须包含开场、数据或证据、转场和行动页，且不得连续三页同原型。完成后输出 `deck-rhythm-review.json` 与 `design-profile-review.json`，检查整套节奏以及字体、留白、图片处理、图表语言、构图是否持续遵守所选方案。
 
+# V3 构图族门禁
+
+- 三张视觉样张必须声明三个不同的 `compositionFamily`；只换颜色、字体或标题不能算不同方案。
+- V3 每页必须在执行清单与 HTML 中同步记录 `compositionFamily` 和 `data-background-mode`。
+- 连续三页使用同一构图族（包括换了原型标签但仍是左右分栏）时，执行门禁失败。
+
 # PPT 制作分层流程
 
 ## 核心原则

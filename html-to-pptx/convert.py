@@ -180,6 +180,13 @@ def convert(html_path: Path, out_path: Path, keep_screenshots: bool, embed_fonts
             # 1) measure（结果通过 dict 在内存里传递；anchor 仅用于 svg / 截图资源定位）
             # only_indices 取回退后的值：measure 回退全量时 Stage 5a/5b 也必须全量，
             # 否则渲染 / compare 图会复用上轮（旧 pptx / 错位页号）的缓存
+            blocking_risks = (preflight_result or {}).get("summary", {}).get("blocking_risks", [])
+            if blocking_risks:
+                raise RuntimeError(
+                    "Preflight blocked conversion because PPTX-unsafe transformed decorations were found: "
+                    + repr(blocking_risks)
+                )
+
             meas, only_indices = _run_measure_with_incremental(
                 html_path, anchor_json, only_indices,
                 measure_needs_screenshots, measure, page=deck_page)
