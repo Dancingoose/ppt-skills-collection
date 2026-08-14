@@ -78,7 +78,8 @@ skill 内部把所有 CSS 翻译成四档输出：
 ## Native Motion
 
 Before browser animation is frozen for static measurement, the converter
-captures supported CSS/WAAPI entrance motion and writes native PowerPoint
-timing. Read `references/native-motion.md` before authoring or reviewing an
-animated deck. Use `data-pptx-motion` when an explicit PowerPoint effect is
-needed or a library does not expose motion through `getAnimations()`.
+captures supported CSS/WAAPI motion and writes native PowerPoint timing,
+including composable motion paths, scale, rotation, and click/with/after
+sequencing. Read `references/native-motion.md` before authoring or reviewing
+an animated deck. Use `data-pptx-motion` for a single effect and
+`data-pptx-motion-plan` for multi-stage choreography.
