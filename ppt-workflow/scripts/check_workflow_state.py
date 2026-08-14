@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import importlib.util
+import itertools
 import json
 import re
 import sys
@@ -242,7 +243,14 @@ def check_intent(state, task_dir, v):
         for batch in expected_batch_order
     }
     v.require(intake.get("skill") == "ppt-workflow-intake", "intent questionnaire uses the packaged intake skill")
-    v.require(intake.get("completed") is True, "intent questionnaire is marked complete")
+    design_profile = decision.get("designProfile", {})
+    revision_requested = (
+        schema_version == 3
+        and isinstance(design_profile, dict)
+        and design_profile.get("status") == "revision-requested"
+    )
+    v.require(intake.get("completed") is True or revision_requested,
+              "intent questionnaire is marked complete")
 
     responses = intake.get("responses")
     v.require(isinstance(responses, list) and len(responses) == len(questions),
@@ -304,6 +312,81 @@ def check_intent(state, task_dir, v):
               "intent questionnaire records every required batch exactly once")
 
 
+def check_design_profile(decision, task_dir, v):
+    """Validate V3 visual samples while allowing an unapproved revision record."""
+    profile = decision.get("designProfile", {})
+    v.require(isinstance(profile, dict), "decision design profile is recorded")
+    profile = profile if isinstance(profile, dict) else {}
+    v.require(profile.get("schemaVersion") == 1, "design profile has schema version 1")
+    status = profile.get("status")
+    v.require(status in {"confirmed", "revision-requested"},
+              "design profile has a supported status")
+
+    preview_name = v.value(profile, "previewArtifact", "design profile preview artifact is recorded")
+    preview_path = task_artifact_path(task_dir, preview_name)
+    v.require(preview_path is not None and preview_path.is_file(),
+              "design profile preview artifact exists")
+    preview_html = preview_path.read_text(encoding="utf-8", errors="ignore") if preview_path and preview_path.is_file() else ""
+
+    candidates = profile.get("candidates")
+    v.require(isinstance(candidates, list) and len(candidates) == 3,
+              "design profile records exactly 3 candidates")
+    candidates = candidates if isinstance(candidates, list) else []
+    required_sources = [question_id for question_id, _ in INTENT_QUESTIONS_V3[:12]]
+    contract_keys = (
+        "narrativeStance", "compositionGeometry", "visualTemperature", "typographicLanguage",
+    )
+    candidate_ids = []
+    contracts = {}
+    for candidate in candidates:
+        candidate = candidate if isinstance(candidate, dict) else {}
+        candidate_id = v.value(candidate, "id", "visual candidate has an id")
+        if isinstance(candidate_id, str):
+            candidate_ids.append(candidate_id)
+        v.value(candidate, "name", f"visual candidate {candidate_id!r} has a name")
+        v.value(candidate, "rationale", f"visual candidate {candidate_id!r} has a rationale")
+        v.require(candidate.get("sourceQuestionIds") == required_sources,
+                  f"visual candidate {candidate_id} cites the first 12 V3 intake questions in order")
+        contract = candidate.get("visualContract")
+        v.require(isinstance(contract, dict), f"visual candidate {candidate_id} records a visual contract")
+        contract = contract if isinstance(contract, dict) else {}
+        for key in contract_keys:
+            v.value(contract, key, f"visual candidate {candidate_id} visual contract has {key}")
+        if isinstance(candidate_id, str):
+            contracts[candidate_id] = contract
+            marker = rf"data-design-profile=[\"']{re.escape(candidate_id)}[\"']"
+            v.require(bool(re.search(marker, preview_html)),
+                      f"visual direction preview embeds candidate {candidate_id}")
+    v.require(len(candidate_ids) == len(set(candidate_ids)), "visual candidate ids are unique")
+    for first_id, second_id in itertools.combinations(candidate_ids, 2):
+        first_contract = contracts.get(first_id, {})
+        second_contract = contracts.get(second_id, {})
+        differences = sum(first_contract.get(key) != second_contract.get(key) for key in contract_keys)
+        v.require(differences >= 3,
+                  f"visual candidates {first_id} and {second_id} differ in at least 3 visual contract dimensions")
+
+    intake = decision.get("intentQuestionnaire", {})
+    completed = intake.get("completed") if isinstance(intake, dict) else None
+    responses = intake.get("responses") if isinstance(intake, dict) else []
+    responses = responses if isinstance(responses, list) else []
+    sample_answer = next((response.get("answer") for response in responses
+                          if isinstance(response, dict) and response.get("id") == "visualSampleConfirmation"), None)
+    if status == "confirmed":
+        selected_profile_id = profile.get("selectedProfileId")
+        v.require(selected_profile_id in candidate_ids,
+                  "confirmed design profile selects one proposed candidate")
+        v.value(profile, "creatorConfirmation", "confirmed design profile records creator confirmation")
+        v.value(profile, "evidence", "confirmed design profile records confirmation evidence")
+        v.require(completed is True, "confirmed design profile has a completed visual sample questionnaire")
+        v.require(sample_answer == selected_profile_id,
+                  "visual sample confirmation answer exactly matches the selected design profile")
+    elif status == "revision-requested":
+        v.value(profile, "revisionFeedback", "revision-requested design profile records revision feedback")
+        v.require(completed is False,
+                  "revision-requested design profile keeps the visual sample questionnaire incomplete")
+    return status == "confirmed"
+
+
 def check_decision(state, task_dir, v):
     check_intent(state, task_dir, v)
     decision = state.get("decision", {})
@@ -318,6 +401,10 @@ def check_decision(state, task_dir, v):
         v.value(phase2, key, f"decision.phase2.{key} is non-empty")
     check_image_sourcing_plan(phase2, task_dir, phase2.get("pageCount"), v)
     intake = decision.get("intentQuestionnaire", {})
+    design_profile_confirmed = True
+    if isinstance(intake, dict) and intake.get("schemaVersion") == 3:
+        design_profile_confirmed = check_design_profile(decision, task_dir, v)
+        v.require(design_profile_confirmed, "design profile is confirmed before formal decision")
     if isinstance(intake, dict) and intake.get("schemaVersion") == 2:
         boldness = phase2.get("designBoldness", {})
         v.require(isinstance(boldness, dict), "decision design boldness is recorded")

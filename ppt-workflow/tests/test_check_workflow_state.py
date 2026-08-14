@@ -126,6 +126,45 @@ V3_QUESTIONS = (
 )
 
 
+def valid_design_profile():
+    source_question_ids = [question_id for question_id, _ in V3_QUESTIONS[:12]]
+    candidates = [
+        {
+            "id": "signal-led", "name": "Signal-led evidence", "rationale": "Prioritizes decision evidence.",
+            "sourceQuestionIds": list(source_question_ids),
+            "visualContract": {
+                "narrativeStance": "evidence-first", "compositionGeometry": "modular-grid",
+                "visualTemperature": "cool", "typographicLanguage": "compact-sans",
+            },
+        },
+        {
+            "id": "thesis-led", "name": "Thesis-led narrative", "rationale": "Prioritizes an executive point of view.",
+            "sourceQuestionIds": list(source_question_ids),
+            "visualContract": {
+                "narrativeStance": "thesis-first", "compositionGeometry": "asymmetric-columns",
+                "visualTemperature": "warm", "typographicLanguage": "editorial-serif",
+            },
+        },
+        {
+            "id": "momentum-led", "name": "Momentum-led projection", "rationale": "Prioritizes the future-state decision.",
+            "sourceQuestionIds": list(source_question_ids),
+            "visualContract": {
+                "narrativeStance": "future-state", "compositionGeometry": "full-bleed-sequence",
+                "visualTemperature": "neutral", "typographicLanguage": "display-sans",
+            },
+        },
+    ]
+    return {
+        "schemaVersion": 1,
+        "status": "confirmed",
+        "previewArtifact": "visual-direction-preview.html",
+        "candidates": candidates,
+        "selectedProfileId": "thesis-led",
+        "creatorConfirmation": "Creator selected the thesis-led visual sample.",
+        "evidence": "Creator response after visual sample review.",
+    }
+
+
 def valid_v3_state():
     state = valid_state()
     intake = state["decision"]["intentQuestionnaire"]
@@ -144,7 +183,7 @@ def valid_v3_state():
             ),
             "answer": answers.get(
                 question_id,
-                "Creator confirmed visual sample B" if question_id == "visualSampleConfirmation"
+                "thesis-led" if question_id == "visualSampleConfirmation"
                 else f"Creator answer for {question_id}",
             ),
             "source": "creator-confirmed",
@@ -161,6 +200,7 @@ def valid_v3_state():
         }
         for batch in (1, 2, 3, 4)
     ]
+    state["decision"]["designProfile"] = valid_design_profile()
     return state
 
 
@@ -172,6 +212,12 @@ HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/e
 PREVIEW_HTML = """<!doctype html><html><body>
 <section class='slide' data-slide-id='1'></section>
 <section class='slide' data-slide-id='2'></section>
+</body></html>"""
+
+VISUAL_DIRECTION_HTML = """<!doctype html><html><body>
+<section data-design-profile='signal-led'>Signal-led evidence</section>
+<section data-design-profile='thesis-led'>Thesis-led narrative</section>
+<section data-design-profile='momentum-led'>Momentum-led projection</section>
 </body></html>"""
 
 CONTENT_INVENTORY = """# Content Inventory
@@ -196,6 +242,9 @@ class WorkflowStateTests(unittest.TestCase):
         (task / "content-inventory.md").write_text(CONTENT_INVENTORY, encoding="utf-8")
         (task / "design.html").write_text(html, encoding="utf-8")
         (task / "preview.html").write_text(PREVIEW_HTML, encoding="utf-8")
+        design_profile = (state or {}).get("decision", {}).get("designProfile", {})
+        if isinstance(design_profile, dict) and isinstance(design_profile.get("previewArtifact"), str):
+            (task / design_profile["previewArtifact"]).write_text(VISUAL_DIRECTION_HTML, encoding="utf-8")
         (task / "image-sourcing-plan.md").write_text(
             "# Image Sourcing Plan\n\n| Slide | Decision | Reason | Substitute |\n"
             "|---|---|---|---|\n| 1 | no-image | Text-led cover | Typography |\n"
@@ -272,6 +321,87 @@ class WorkflowStateTests(unittest.TestCase):
         for layer in ("intent", "decision"):
             result = self.check(task, layer)
             self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_v3_decision_accepts_a_confirmed_dynamic_visual_profile(self):
+        result = self.check(self.write_task(valid_v3_state()), "decision")
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_v3_decision_rejects_fewer_than_three_visual_candidates(self):
+        state = valid_v3_state()
+        state["decision"]["designProfile"]["candidates"].pop()
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design profile records exactly 3 candidates", result.stdout)
+
+    def test_v3_decision_rejects_candidates_without_three_distinct_visual_dimensions(self):
+        state = valid_v3_state()
+        candidates = state["decision"]["designProfile"]["candidates"]
+        candidates[1]["visualContract"] = dict(candidates[0]["visualContract"])
+        candidates[1]["visualContract"]["narrativeStance"] = "thesis-first"
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("visual candidates signal-led and thesis-led differ in at least 3 visual contract dimensions", result.stdout)
+
+    def test_v3_decision_rejects_candidate_with_wrong_question_sources(self):
+        state = valid_v3_state()
+        state["decision"]["designProfile"]["candidates"][0]["sourceQuestionIds"].pop()
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("visual candidate signal-led cites the first 12 V3 intake questions in order", result.stdout)
+
+    def test_v3_decision_rejects_missing_visual_direction_preview(self):
+        state = valid_v3_state()
+        task = self.write_task(state)
+        (task / state["decision"]["designProfile"]["previewArtifact"]).unlink()
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design profile preview artifact exists", result.stdout)
+
+    def test_v3_decision_rejects_preview_missing_a_candidate_marker(self):
+        state = valid_v3_state()
+        task = self.write_task(state)
+        (task / "visual-direction-preview.html").write_text(
+            "<section data-design-profile='signal-led'></section><section data-design-profile='thesis-led'></section>",
+            encoding="utf-8",
+        )
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("visual direction preview embeds candidate momentum-led", result.stdout)
+
+    def test_v3_decision_rejects_confirmed_profile_without_a_selected_candidate(self):
+        state = valid_v3_state()
+        state["decision"]["designProfile"]["selectedProfileId"] = "missing-profile"
+        state["decision"]["intentQuestionnaire"]["responses"][-1]["answer"] = "missing-profile"
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("confirmed design profile selects one proposed candidate", result.stdout)
+
+    def test_v3_decision_fails_closed_for_malformed_intake_responses(self):
+        state = valid_v3_state()
+        state["decision"]["intentQuestionnaire"]["responses"] = None
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn("Traceback", result.stderr)
+
+    def test_v3_decision_rejects_revision_request_without_feedback(self):
+        state = valid_v3_state()
+        profile = state["decision"]["designProfile"]
+        profile["status"] = "revision-requested"
+        profile.pop("revisionFeedback", None)
+        state["decision"]["intentQuestionnaire"]["completed"] = False
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("revision-requested design profile records revision feedback", result.stdout)
+
+    def test_v3_decision_blocks_revision_request_even_with_feedback(self):
+        state = valid_v3_state()
+        profile = state["decision"]["designProfile"]
+        profile["status"] = "revision-requested"
+        profile["revisionFeedback"] = "Make the visual system less restrained."
+        state["decision"]["intentQuestionnaire"]["completed"] = False
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design profile is confirmed before formal decision", result.stdout)
 
     def test_v3_intake_rejects_an_incomplete_answer_set(self):
         state = valid_v3_state()
