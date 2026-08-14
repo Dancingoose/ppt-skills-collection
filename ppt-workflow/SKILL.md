@@ -3,6 +3,14 @@ name: "ppt-workflow"
 description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、deck、演示文稿、presentation 时触发。四层架构：准备层(读素材)→设计决策层(定方向)→执行层(HTML设计稿+视觉增强)→交付层(导出PPTX)。杜绝直接用 python-pptx 手工拼形状。"
 ---
 
+## V3 动态视觉方案规则（优先于旧的固定风格提问）
+
+前 12 项意图问题按 `4+4+4` 三批完成后，基于回答与素材盘点动态提出三个互有明显差异的视觉方案；不预设固定的风格类别。每个方案要给出名称、适配理由、四维视觉契约（叙事姿态、构图几何、视觉温度、字体语言）和可查看的独立样张。三方案任意两者至少有三个维度不同。
+
+第 13 项是样张确认：制作者查看 `visual-direction-preview.html` 后选定一个方案，或选择“都不符合”。后者必须记录修改意见、重新生成三张样张，并保持问卷未完成；未确认方案时不得进入正式设计。选中方案必须写入 `decision.designProfile`，并把同一视觉契约锁入 `decision.passport.designProfile`。
+
+执行层的每页必须登记并在 HTML `.slide` 上标记页面原型：`hero`、`context`、`evidence`、`data`、`comparison`、`process`、`transition`、`recommendation` 或 `action`。十页及以上的文稿必须包含开场、数据或证据、转场和行动页，且不得连续三页同原型。完成后输出 `deck-rhythm-review.json` 与 `design-profile-review.json`，检查整套节奏以及字体、留白、图片处理、图表语言、构图是否持续遵守所选方案。
+
 # PPT 制作分层流程
 
 ## 核心原则

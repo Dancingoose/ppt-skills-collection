@@ -60,6 +60,10 @@ INTENT_QUESTIONS_V3 = (
     ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
     ("designBoldness", 3), ("visualSampleConfirmation", 4),
 )
+PAGE_ARCHETYPES = {
+    "hero", "context", "evidence", "data", "comparison", "process", "transition",
+    "recommendation", "action",
+}
 
 
 def intent_questions_for_schema(schema_version):
@@ -431,6 +435,16 @@ def check_decision(state, task_dir, v):
     passport = decision.get("passport", {})
     for key in ("theme", "accent", "background", "titleFont", "bodyFont", "style"):
         v.value(passport, key, f"decision.passport.{key} is non-empty")
+    if intake.get("schemaVersion") == 3:
+        profile = decision.get("designProfile", {})
+        selected_id = profile.get("selectedProfileId")
+        selected = next((candidate for candidate in profile.get("candidates", [])
+                         if isinstance(candidate, dict) and candidate.get("id") == selected_id), {})
+        passport_profile = passport.get("designProfile", {})
+        v.require(passport_profile.get("id") == selected_id,
+                  "passport locks the selected design profile id")
+        v.require(passport_profile.get("visualContract") == selected.get("visualContract"),
+                  "passport locks the selected design profile visual contract")
     v.require(passport.get("backgroundStrategy") in {"uniform", "rhythmic"},
               "decision.passport.backgroundStrategy is uniform or rhythmic")
     v.require(passport.get("primaryBackgroundMode") in {"dark", "light"},
@@ -527,6 +541,52 @@ def check_color_continuity_review(review, task_dir, html, html_path, slides, see
             ), f"slide {slide_id} embeds its reviewed {mode} color system")
 
 
+def check_v3_execution_reviews(execution, task_dir, html_path, slides, seen_ids, selected_profile_id, v):
+    rhythm = execution.get("deckRhythmReview", {})
+    v.require(rhythm.get("skill") == "ppt-workflow-review", "deck rhythm review uses the packaged review skill")
+    artifact_name = v.value(rhythm, "artifact", "deck rhythm review artifact is recorded")
+    artifact = load_json_artifact(task_dir, artifact_name, "deck rhythm review", v)
+    v.require(artifact.get("schemaVersion") == 1, "deck rhythm review artifact has schema version")
+    v.require(artifact.get("skill") == "ppt-workflow-review", "deck rhythm review artifact identifies the review skill")
+    v.require(artifact.get("result") == rhythm.get("result") and rhythm.get("result") in {"pass", "revised"},
+              "deck rhythm review artifact has an approved result")
+    sequence = [{"id": item.get("id"), "archetype": item.get("archetype")} for item in slides]
+    v.require(artifact.get("archetypeSequence") == sequence, "deck rhythm review matches the execution archetype sequence")
+    archetypes = [item.get("archetype") for item in slides]
+    v.require(not any(archetypes[index:index + 3] == [archetypes[index]] * 3
+                      for index in range(max(0, len(archetypes) - 2))),
+              "deck rhythm has no three consecutive matching archetypes")
+    if len(slides) >= 10:
+        available = set(archetypes)
+        v.require({"hero", "action"}.issubset(available) and bool({"data", "evidence"} & available),
+                  "long deck includes hero, evidence or data, and action archetypes")
+        v.require("transition" in available, "long deck includes an intentional transition archetype")
+
+    review = execution.get("designProfileReview", {})
+    v.require(review.get("skill") == "ppt-workflow-review", "design profile review uses the packaged review skill")
+    review_name = v.value(review, "artifact", "design profile review artifact is recorded")
+    profile_artifact = load_json_artifact(task_dir, review_name, "design profile review", v)
+    v.require(profile_artifact.get("schemaVersion") == 1, "design profile review artifact has schema version")
+    v.require(profile_artifact.get("skill") == "ppt-workflow-review", "design profile review artifact identifies the review skill")
+    v.require(profile_artifact.get("result") == review.get("result") and review.get("result") in {"pass", "revised"},
+              "design profile review artifact has an approved result")
+    expected_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
+    for source in (review, profile_artifact):
+        v.require(source.get("selectedProfileId") == selected_profile_id,
+                  "design profile review locks the selected profile")
+        reviewed = source.get("reviewedSlides")
+        v.require(isinstance(reviewed, list) and set(reviewed) == seen_ids and len(reviewed) == len(seen_ids),
+                  "design profile review covers every slide exactly once")
+        v.require(normalized_sha256(source.get("htmlSha256")) == expected_hash,
+                  "design profile review applies to the current execution HTML")
+    dimensions = profile_artifact.get("reviewedDimensions")
+    v.require(isinstance(dimensions, list) and {"typography", "spacing", "imageTreatment", "chartLanguage", "composition"}.issubset(dimensions),
+              "design profile review covers typography, spacing, image treatment, chart language, and composition")
+    v.require(isinstance(profile_artifact.get("exceptions"), list), "design profile review records exceptions as a list")
+    v.value(review, "notes", "design profile review has notes")
+    v.value(profile_artifact, "notes", "design profile review artifact has notes")
+
+
 def check_execution(state, task_dir, v):
     check_intent(state, task_dir, v)
     execution = state.get("execution", {})
@@ -569,6 +629,14 @@ def check_execution(state, task_dir, v):
             for tag in tags
         )
         v.require(discoverable_tag, f"slide {slide_id} is explicitly discoverable by the converter")
+        if intake_schema == 3:
+            archetype = item.get("archetype")
+            v.require(archetype in PAGE_ARCHETYPES, f"slide {slide_id} has a supported page archetype")
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-archetype=[\"']{re.escape(archetype) if isinstance(archetype, str) else '(?!)'}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} archetype is embedded in its HTML container")
         evidence = item.get("layoutEvidence", {})
         item_count = evidence.get("itemCount")
         v.require(isinstance(item_count, int) and item_count >= 0, f"slide {slide_id} records a layout item count")
@@ -692,6 +760,11 @@ def check_execution(state, task_dir, v):
     actual_html_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
     v.require(normalized_sha256(reviewed_html_hash) == actual_html_hash, "source HTML has not changed since visual review")
     check_color_continuity_review(execution.get("colorContinuityReview", {}), task_dir, html, html_path, slides, seen_ids, v)
+    if intake_schema == 3:
+        check_v3_execution_reviews(
+            execution, task_dir, html_path, slides, seen_ids,
+            state.get("decision", {}).get("designProfile", {}).get("selectedProfileId"), v,
+        )
     review = execution.get("independentReview", {})
     v.require(review.get("result") in {"pass", "revised"}, "independent execution review has a result")
     v.value(review, "notes", "independent execution review has notes")

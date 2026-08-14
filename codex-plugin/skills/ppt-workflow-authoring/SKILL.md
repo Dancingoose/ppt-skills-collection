@@ -5,6 +5,10 @@ description: Build source-backed HTML slides for PPT Workflow Studio using the c
 
 # PPT Workflow Authoring
 
+## V3 方案映射
+
+只使用已确认的 `decision.designProfile`。将其完整 `visualContract` 复制到设计护照；每页登记一个页面原型并在 HTML `.slide` 写入 `data-archetype`。用不同原型组织信息，不得把连续内容退化为重复卡片网格。
+
 Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package.
 
 1. Run `check_workflow_state.py --layer intent` and resolve every failure before authoring a preview or full deck. Read `references/quick-reference-card.md`, then only the selected theme block from `references/theme-tokens.md`, the chosen layouts in `references/layout-library.md`, and the native-size rule for the selected canvas in `references/canvas-formats.md`.

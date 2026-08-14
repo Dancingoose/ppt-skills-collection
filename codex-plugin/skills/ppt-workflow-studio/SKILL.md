@@ -5,6 +5,10 @@ description: Create or revise a presentation, slide deck, or editable PPTX using
 
 # PPT Workflow Studio
 
+## V3 编排顺序
+
+完成前 12 项后先生成动态三方案样张；第 13 项确认前停止制作。确认后才写入护照、制作 HTML，并在执行完成后运行节奏审查和方案一致性审查。
+
 Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Treat `ppt-workflow/templates/workflow-state.example.json` as the task contract and `ppt-workflow/scripts/check_workflow_state.py` as the gatekeeper.
 
 1. Create `<workspace>/workflow-runs/<task-slug>/`. Copy the state template to `workflow-state.json`. Record extracted material in `content-inventory.md`, then replace its core-message, data-point, and page-plan placeholders before the preparation gate can pass.

@@ -201,12 +201,27 @@ def valid_v3_state():
         for batch in (1, 2, 3, 4)
     ]
     state["decision"]["designProfile"] = valid_design_profile()
+    selected = state["decision"]["designProfile"]["candidates"][1]
+    state["decision"]["passport"]["designProfile"] = {
+        "id": selected["id"], "visualContract": dict(selected["visualContract"]),
+    }
+    state["execution"]["lockedPassport"] = copy.deepcopy(state["decision"]["passport"])
+    state["execution"]["slides"][0]["archetype"] = "hero"
+    state["execution"]["slides"][1]["archetype"] = "data"
+    state["execution"].update({
+        "deckRhythmReview": {"skill": "ppt-workflow-review", "artifact": "deck-rhythm-review.json", "result": "pass"},
+        "designProfileReview": {
+            "skill": "ppt-workflow-review", "artifact": "design-profile-review.json", "result": "pass",
+            "selectedProfileId": selected["id"], "reviewedSlides": [1, 2], "htmlSha256": "",
+            "notes": "Typography, spacing, image treatment, chart language, and composition match the selected profile.",
+        },
+    })
     return state
 
 
 HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/echarts@5'></script></head><body>
-<section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark'></section>
-<section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1' data-color-system='coastal-light'></section>
+<section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark' data-archetype='hero'></section>
+<section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1' data-color-system='coastal-light' data-archetype='data'></section>
 </body></html>"""
 
 PREVIEW_HTML = """<!doctype html><html><body>
@@ -289,6 +304,25 @@ class WorkflowStateTests(unittest.TestCase):
                         {"id": "coastal-light", "mode": "light", "slides": [2], "baseColor": "#F2FBFA", "temperature": "cool", "dominantSurface": "foam with aqua details", "notes": "The content page uses the light coastal system."},
                     ],
                 }), encoding="utf-8")
+            rhythm_review = state["execution"].get("deckRhythmReview")
+            if isinstance(rhythm_review, dict):
+                (task / rhythm_review["artifact"]).write_text(json.dumps({
+                    "schemaVersion": 1, "skill": rhythm_review["skill"], "result": rhythm_review["result"],
+                    "archetypeSequence": [
+                        {"id": slide["id"], "archetype": slide.get("archetype")}
+                        for slide in state["execution"]["slides"]
+                    ],
+                }), encoding="utf-8")
+            profile_review = state["execution"].get("designProfileReview")
+            if isinstance(profile_review, dict):
+                profile_review["htmlSha256"] = hashlib.sha256((task / "design.html").read_bytes()).hexdigest()
+                (task / profile_review["artifact"]).write_text(json.dumps({
+                    "schemaVersion": 1, "skill": profile_review["skill"], "result": profile_review["result"],
+                    "selectedProfileId": profile_review["selectedProfileId"],
+                    "reviewedSlides": profile_review["reviewedSlides"], "htmlSha256": profile_review["htmlSha256"],
+                    "reviewedDimensions": ["typography", "spacing", "imageTreatment", "chartLanguage", "composition"],
+                    "exceptions": [], "notes": profile_review["notes"],
+                }), encoding="utf-8")
         self.addCleanup(directory.cleanup)
         return task
 
@@ -325,6 +359,19 @@ class WorkflowStateTests(unittest.TestCase):
     def test_v3_decision_accepts_a_confirmed_dynamic_visual_profile(self):
         result = self.check(self.write_task(valid_v3_state()), "decision")
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_v3_execution_requires_page_archetypes_and_file_backed_reviews(self):
+        state = valid_v3_state()
+        del state["execution"]["slides"][0]["archetype"]
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("slide 1 has a supported page archetype", result.stdout)
+
+        state = valid_v3_state()
+        del state["execution"]["deckRhythmReview"]
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("deck rhythm review artifact is recorded", result.stdout)
 
     def test_v3_decision_rejects_fewer_than_three_visual_candidates(self):
         state = valid_v3_state()
