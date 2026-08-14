@@ -53,9 +53,17 @@ INTENT_QUESTIONS_V2 = (
     ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
     ("designBoldness", 3), ("referenceStyle", 3),
 )
+INTENT_QUESTIONS_V3 = (
+    ("audience", 1), ("intent", 1), ("coreClaim", 1), ("canvas", 1),
+    ("language", 2), ("expectedOutcome", 2), ("useScene", 2), ("deliveryUse", 2),
+    ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
+    ("designBoldness", 3), ("designProfileSelection", 4),
+)
 
 
 def intent_questions_for_schema(schema_version):
+    if schema_version == 3:
+        return INTENT_QUESTIONS_V3
     return INTENT_QUESTIONS_V2 if schema_version == 2 else INTENT_QUESTIONS_V1
 
 
@@ -225,9 +233,14 @@ def check_intent(state, task_dir, v):
     if not isinstance(intake, dict):
         return
     schema_version = intake.get("schemaVersion")
-    v.require(schema_version in {1, 2}, "intent questionnaire has a supported schema version")
+    v.require(schema_version in {1, 2, 3}, "intent questionnaire has a supported schema version")
     questions = intent_questions_for_schema(schema_version)
     question_batch = dict(questions)
+    expected_batch_order = list(dict.fromkeys(batch for _, batch in questions))
+    expected_by_batch = {
+        batch: [question_id for question_id, expected_batch in questions if expected_batch == batch]
+        for batch in expected_batch_order
+    }
     v.require(intake.get("skill") == "ppt-workflow-intake", "intent questionnaire uses the packaged intake skill")
     v.require(intake.get("completed") is True, "intent questionnaire is marked complete")
 
@@ -255,7 +268,7 @@ def check_intent(state, task_dir, v):
                           "design boldness response records a level from 1 to 5")
         v.require([response.get("id") if isinstance(response, dict) else None for response in responses]
                   == [question_id for question_id, _ in questions],
-                  "intent responses follow the required three-batch question order")
+                  "intent responses follow the required question order")
         answers_by_id = {
             response.get("id"): response.get("answer", "").strip()
             for response in responses if isinstance(response, dict) and isinstance(response.get("answer"), str)
@@ -268,12 +281,8 @@ def check_intent(state, task_dir, v):
     v.require(seen_ids == set(question_batch), "intent questionnaire includes every required question exactly once")
 
     batches = intake.get("batches")
-    v.require(isinstance(batches, list) and len(batches) == 3,
-              "intent questionnaire records all three question batches")
-    expected_by_batch = {
-        batch: [question_id for question_id, expected_batch in questions if expected_batch == batch]
-        for batch in (1, 2, 3)
-    }
+    v.require(isinstance(batches, list) and len(batches) == len(expected_batch_order),
+              "intent questionnaire records all required question batches")
     seen_batches = set()
     if isinstance(batches, list):
         for batch_record in batches:
@@ -284,12 +293,13 @@ def check_intent(state, task_dir, v):
             if batch in expected_by_batch:
                 seen_batches.add(batch)
                 v.require(batch_record.get("questionIds") == expected_by_batch[batch],
-                          f"intent batch {batch} contains its required four questions in order")
+                          f"intent batch {batch} contains its required questions in order")
             v.value(batch_record, "creatorConfirmation",
                     f"intent batch {batch!r} records the creator's response evidence")
-        v.require([batch_record.get("batch") if isinstance(batch_record, dict) else None for batch_record in batches] == [1, 2, 3],
+        v.require([batch_record.get("batch") if isinstance(batch_record, dict) else None for batch_record in batches] == expected_batch_order,
                   "intent batches are recorded in creator-response order")
-    v.require(seen_batches == {1, 2, 3}, "intent questionnaire records batches 1, 2, and 3")
+    v.require(seen_batches == set(expected_batch_order),
+              "intent questionnaire records every required batch exactly once")
 
 
 def check_decision(state, task_dir, v):

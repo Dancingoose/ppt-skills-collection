@@ -118,6 +118,44 @@ def valid_v2_state(level=4, profile=None, motion_mode="pptx-static"):
     return state
 
 
+V3_QUESTIONS = (
+    ("audience", 1), ("intent", 1), ("coreClaim", 1), ("canvas", 1),
+    ("language", 2), ("expectedOutcome", 2), ("useScene", 2), ("deliveryUse", 2),
+    ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
+    ("designBoldness", 3), ("designProfileSelection", 4),
+)
+
+
+def valid_v3_state():
+    state = valid_state()
+    intake = state["decision"]["intentQuestionnaire"]
+    intake["schemaVersion"] = 3
+    answers = {
+        "audience": "Leadership", "intent": "Decision", "coreClaim": "Invest", "canvas": "ppt169",
+    }
+    intake["responses"] = [
+        {
+            "id": question_id,
+            "batch": batch,
+            "question": f"Question for {question_id}",
+            "answer": answers.get(question_id, f"Creator answer for {question_id}"),
+            "source": "creator-confirmed",
+            "evidence": f"Creator reply after batch {batch}",
+            **({"level": 4} if question_id == "designBoldness" else {}),
+        }
+        for question_id, batch in V3_QUESTIONS
+    ]
+    intake["batches"] = [
+        {
+            "batch": batch,
+            "questionIds": [question_id for question_id, question_batch in V3_QUESTIONS if question_batch == batch],
+            "creatorConfirmation": f"Creator reply after batch {batch}",
+        }
+        for batch in (1, 2, 3, 4)
+    ]
+    return state
+
+
 HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/echarts@5'></script></head><body>
 <section class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark'></section>
 <section class='slide' data-pptx-slide data-slide-id='2' data-layout='B6' data-item-count='1' data-color-system='coastal-light'></section>
@@ -215,6 +253,12 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "intent")
         self.assertEqual(result.returncode, 2)
         self.assertIn("intent questionnaire has a supported schema version", result.stdout)
+
+    def test_v3_intake_accepts_thirteen_answers_in_four_batches(self):
+        task = self.write_task(valid_v3_state())
+        for layer in ("intent", "decision"):
+            result = self.check(task, layer)
+            self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_v2_intake_binds_boldness_to_composition_choices(self):
         state = valid_state()
