@@ -122,7 +122,7 @@ V3_QUESTIONS = (
     ("audience", 1), ("intent", 1), ("coreClaim", 1), ("canvas", 1),
     ("language", 2), ("expectedOutcome", 2), ("useScene", 2), ("deliveryUse", 2),
     ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
-    ("designBoldness", 3), ("designProfileSelection", 4),
+    ("designBoldness", 3), ("visualSampleConfirmation", 4),
 )
 
 
@@ -137,8 +137,16 @@ def valid_v3_state():
         {
             "id": question_id,
             "batch": batch,
-            "question": f"Question for {question_id}",
-            "answer": answers.get(question_id, f"Creator answer for {question_id}"),
+            "question": (
+                "Which visual sample do you confirm?"
+                if question_id == "visualSampleConfirmation"
+                else f"Question for {question_id}"
+            ),
+            "answer": answers.get(
+                question_id,
+                "Creator confirmed visual sample B" if question_id == "visualSampleConfirmation"
+                else f"Creator answer for {question_id}",
+            ),
             "source": "creator-confirmed",
             "evidence": f"Creator reply after batch {batch}",
             **({"level": 4} if question_id == "designBoldness" else {}),
@@ -254,8 +262,13 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("intent questionnaire has a supported schema version", result.stdout)
 
-    def test_v3_intake_accepts_thirteen_answers_in_four_batches(self):
-        task = self.write_task(valid_v3_state())
+    def test_v3_intake_accepts_visual_sample_confirmation_in_four_batches(self):
+        state = valid_v3_state()
+        confirmation = state["decision"]["intentQuestionnaire"]["responses"][-1]
+        self.assertEqual(confirmation["id"], "visualSampleConfirmation")
+        self.assertEqual(confirmation["question"], "Which visual sample do you confirm?")
+        self.assertEqual(confirmation["batch"], 4)
+        task = self.write_task(state)
         for layer in ("intent", "decision"):
             result = self.check(task, layer)
             self.assertEqual(result.returncode, 0, result.stdout)

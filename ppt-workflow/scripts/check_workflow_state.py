@@ -57,7 +57,7 @@ INTENT_QUESTIONS_V3 = (
     ("audience", 1), ("intent", 1), ("coreClaim", 1), ("canvas", 1),
     ("language", 2), ("expectedOutcome", 2), ("useScene", 2), ("deliveryUse", 2),
     ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
-    ("designBoldness", 3), ("designProfileSelection", 4),
+    ("designBoldness", 3), ("visualSampleConfirmation", 4),
 )
 
 
