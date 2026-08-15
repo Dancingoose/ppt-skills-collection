@@ -125,6 +125,66 @@ V3_QUESTIONS = (
     ("designBoldness", 3), ("visualSampleConfirmation", 4),
 )
 
+DESIGN_ORCHESTRATION_SKILLS = (
+    "claude-design", "ui-ux-pro-max", "mbb-decks",
+    "frontend-design", "axi-front-design",
+)
+DESIGN_ORCHESTRATION_ARTIFACTS = {
+    "claude-design": "design-directions.md",
+    "ui-ux-pro-max": "design-research.md",
+    "mbb-decks": "ghost-deck.md",
+    "frontend-design": "frontend-design-review.md",
+    "axi-front-design": "visual-direction-preview.html",
+}
+
+
+def valid_design_recipes():
+    return [
+        {
+            "id": "signal-led", "theme": "swiss-grid", "narrativeStance": "evidence-first",
+            "compositionGeometry": "modular-grid", "visualTemperature": "cool",
+            "typographicLanguage": "compact-sans", "informationStructure": "evidence-matrix",
+            "imageTreatment": "documentary-crop", "chartLanguage": "analytical",
+            "motionStrategy": "static-reveal", "signature": "evidence rail",
+            "sourceLenses": list(DESIGN_ORCHESTRATION_SKILLS), "sampleSlideIds": [1, 2],
+            "adoptedConstraints": ["Use cool evidence surfaces with clear source hierarchy."],
+        },
+        {
+            "id": "thesis-led", "theme": "editorial-serif", "narrativeStance": "thesis-first",
+            "compositionGeometry": "asymmetric-columns", "visualTemperature": "warm",
+            "typographicLanguage": "editorial-serif", "informationStructure": "argument-arc",
+            "imageTreatment": "editorial-detail", "chartLanguage": "annotated-comparison",
+            "motionStrategy": "paced-sequence", "signature": "thesis margin",
+            "sourceLenses": list(DESIGN_ORCHESTRATION_SKILLS), "sampleSlideIds": [3, 4],
+            "adoptedConstraints": ["Translate accessibility contrast research into the editorial palette."],
+        },
+        {
+            "id": "momentum-led", "theme": "aurora", "narrativeStance": "future-state",
+            "compositionGeometry": "full-bleed-sequence", "visualTemperature": "neutral",
+            "typographicLanguage": "display-sans", "informationStructure": "decision-journey",
+            "imageTreatment": "atmospheric-context", "chartLanguage": "trajectory",
+            "motionStrategy": "progressive-horizon", "signature": "motion horizon",
+            "sourceLenses": list(DESIGN_ORCHESTRATION_SKILLS), "sampleSlideIds": [5, 6],
+            "adoptedConstraints": ["Use motion only where the delivery choice preserves playback."],
+        },
+    ]
+
+
+def valid_design_orchestration():
+    return {
+        "schemaVersion": 1,
+        "artifact": "design-orchestration.json",
+        "sha256": "",
+        "intentBindingsSha256": "",
+        "previewSha256": "",
+        "executionHtmlSha256": "",
+        "selectedRecipeId": "thesis-led",
+        "artifacts": [
+            {"skill": skill, "file": filename, "inputSha256": "", "sha256": ""}
+            for skill, filename in DESIGN_ORCHESTRATION_ARTIFACTS.items()
+        ],
+    }
+
 
 def valid_design_profile():
     source_question_ids = [question_id for question_id, _ in V3_QUESTIONS[:12]]
@@ -207,6 +267,8 @@ def valid_v3_state():
         for batch in (1, 2, 3, 4)
     ]
     state["decision"]["designProfile"] = valid_design_profile()
+    state["decision"]["designRecipes"] = valid_design_recipes()
+    state["decision"]["designOrchestration"] = valid_design_orchestration()
     state["decision"]["intentBindings"] = {
         "creatorConfirmed": True,
         "evidence": "Creator confirmed the content, composition, and delivery boundaries.",
@@ -265,7 +327,7 @@ HTML = """<!doctype html><html><head><script src='https://cdn.jsdelivr.net/npm/e
 V3_HTML = HTML.replace(
     "class='slide dark' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-dark' data-background-mode='dark'",
     "class='slide' data-pptx-slide data-slide-id='1' data-layout='B1' data-item-count='0' data-color-system='coastal-light' data-background-mode='light'",
-).replace("data-color-system='coastal-light' data-background-mode='light' data-composition-family='single-axis'", "data-color-system='coastal-light' data-background-mode='light' data-composition-family='single-axis'")
+).replace("data-color-system='coastal-light' data-background-mode='light'", "data-color-system='coastal-light' data-background-mode='light' data-design-recipe='thesis-led'")
 
 PREVIEW_HTML = """<!doctype html><html><body>
 <section class='slide' data-slide-id='1'></section>
@@ -273,9 +335,9 @@ PREVIEW_HTML = """<!doctype html><html><body>
 </body></html>"""
 
 VISUAL_DIRECTION_HTML = """<!doctype html><html><body>
-<section data-design-profile='signal-led' data-composition-family='modular-grid'>Signal-led evidence</section>
-<section data-design-profile='thesis-led' data-composition-family='asymmetric-columns'>Thesis-led narrative</section>
-<section data-design-profile='momentum-led' data-composition-family='full-bleed-sequence'>Momentum-led projection</section>
+<section data-design-profile='signal-led' data-design-recipe='signal-led' data-composition-family='modular-grid'>Signal-led evidence</section>
+<section data-design-profile='thesis-led' data-design-recipe='thesis-led' data-composition-family='asymmetric-columns'>Thesis-led narrative</section>
+<section data-design-profile='momentum-led' data-design-recipe='momentum-led' data-composition-family='full-bleed-sequence'>Momentum-led projection</section>
 </body></html>"""
 
 CONTENT_INVENTORY = """# Content Inventory
@@ -302,9 +364,34 @@ class WorkflowStateTests(unittest.TestCase):
             html = V3_HTML if isinstance(state, dict) and state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion") == 3 else HTML
         (task / "design.html").write_text(html, encoding="utf-8")
         (task / "preview.html").write_text(PREVIEW_HTML, encoding="utf-8")
+        orchestration = (state or {}).get("decision", {}).get("designOrchestration", {})
         design_profile = (state or {}).get("decision", {}).get("designProfile", {})
-        if isinstance(design_profile, dict) and isinstance(design_profile.get("previewArtifact"), str):
-            (task / design_profile["previewArtifact"]).write_text(VISUAL_DIRECTION_HTML, encoding="utf-8")
+        visual_direction_name = (
+            design_profile.get("previewArtifact")
+            if isinstance(design_profile, dict) else None
+        )
+        if not isinstance(visual_direction_name, str) and isinstance(orchestration, dict):
+            visual_direction_name = next((
+                artifact.get("file") for artifact in orchestration.get("artifacts", [])
+                if isinstance(artifact, dict) and artifact.get("skill") == "axi-front-design"
+            ), None)
+        if isinstance(visual_direction_name, str):
+            (task / visual_direction_name).write_text(VISUAL_DIRECTION_HTML, encoding="utf-8")
+        if isinstance(orchestration, dict):
+            recipe_ids = [
+                recipe["id"] for recipe in (state or {}).get("decision", {}).get("designRecipes", [])
+                if isinstance(recipe, dict)
+            ]
+            for artifact in orchestration.get("artifacts", []):
+                if not isinstance(artifact, dict):
+                    continue
+                filename = artifact.get("file")
+                if filename == "visual-direction-preview.html":
+                    continue
+                if isinstance(filename, str):
+                    (task / filename).write_text(
+                        "# Design orchestration artifact\n\n" + "\n".join(recipe_ids), encoding="utf-8",
+                    )
         (task / "image-sourcing-plan.md").write_text(
             "# Image Sourcing Plan\n\n| Slide | Decision | Reason | Substitute |\n"
             "|---|---|---|---|\n| 1 | no-image | Text-led cover | Typography |\n"
@@ -391,6 +478,33 @@ class WorkflowStateTests(unittest.TestCase):
                     "checks": {"intentToPreview": "pass", "previewToExecution": "pass", "executionToDelivery": "pass"},
                     "revisionRound": 1, "exceptions": [], "notes": continuity_review["notes"],
                 }), encoding="utf-8")
+            if isinstance(orchestration, dict) and orchestration:
+                bindings = state["decision"].get("intentBindings")
+                orchestration["intentBindingsSha256"] = (
+                    hashlib.sha256(json.dumps(bindings, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+                    if isinstance(bindings, dict) else ""
+                )
+                previous_hash = orchestration["intentBindingsSha256"]
+                for artifact in orchestration["artifacts"]:
+                    filename = artifact["file"]
+                    if filename == "visual-direction-preview.html":
+                        content = VISUAL_DIRECTION_HTML + f"\n<!-- Input SHA-256: {previous_hash} -->\n"
+                    else:
+                        content = "# Design orchestration artifact\n\n" + f"Input SHA-256: {previous_hash}\n\n" + "\n".join(recipe_ids)
+                    (task / filename).write_text(content, encoding="utf-8")
+                    artifact["inputSha256"] = previous_hash
+                    artifact["sha256"] = hashlib.sha256((task / filename).read_bytes()).hexdigest()
+                    previous_hash = artifact["sha256"]
+                orchestration["previewSha256"] = orchestration["artifacts"][-1]["sha256"]
+                orchestration["executionHtmlSha256"] = hashlib.sha256((task / "design.html").read_bytes()).hexdigest()
+                orchestration_payload = {
+                    key: value for key, value in orchestration.items()
+                    if key not in {"artifact", "sha256", "executionHtmlSha256"}
+                }
+                orchestration_payload["recipes"] = state["decision"]["designRecipes"]
+                orchestration_path = task / orchestration["artifact"]
+                orchestration_path.write_text(json.dumps(orchestration_payload), encoding="utf-8")
+                orchestration["sha256"] = hashlib.sha256(orchestration_path.read_bytes()).hexdigest()
             # Persist hashes populated while the file-backed review artifacts are built.
             (task / "workflow-state.json").write_text(json.dumps(state), encoding="utf-8")
         self.addCleanup(directory.cleanup)
@@ -426,9 +540,97 @@ class WorkflowStateTests(unittest.TestCase):
             result = self.check(task, layer)
             self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_v3_pre_design_intent_gate_accepts_only_the_first_three_batches(self):
+        state = valid_v3_state()
+        intake = state["decision"]["intentQuestionnaire"]
+        intake["responses"] = intake["responses"][:12]
+        intake["batches"] = intake["batches"][:3]
+        intake["completed"] = False
+        state["decision"].pop("designProfile")
+        state["decision"]["designOrchestration"].pop("selectedRecipeId")
+        state["execution"].pop("designProfileReview")
+        state["execution"].pop("intentContinuityReview")
+        task = self.write_task(state)
+        for layer in ("intent", "design"):
+            result = self.check(task, layer)
+            self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_v3_design_candidate_gate_rejects_a_missing_fixed_skill_artifact(self):
+        state = valid_v3_state()
+        intake = state["decision"]["intentQuestionnaire"]
+        intake["responses"] = intake["responses"][:12]
+        intake["batches"] = intake["batches"][:3]
+        intake["completed"] = False
+        state["decision"].pop("designProfile")
+        state["decision"]["designOrchestration"].pop("selectedRecipeId")
+        state["decision"]["designOrchestration"]["artifacts"].pop()
+        state["execution"].pop("designProfileReview")
+        state["execution"].pop("intentContinuityReview")
+        result = self.check(self.write_task(state), "design")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design orchestration records every required skill artifact", result.stdout)
+
     def test_v3_decision_accepts_a_confirmed_dynamic_visual_profile(self):
         result = self.check(self.write_task(valid_v3_state()), "decision")
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_v3_decision_requires_every_design_orchestration_artifact(self):
+        state = valid_v3_state()
+        state["decision"]["designOrchestration"]["artifacts"].pop()
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design orchestration records every required skill artifact", result.stdout)
+
+    def test_v3_decision_rejects_recipes_without_three_distinct_axes(self):
+        state = valid_v3_state()
+        state["decision"]["designRecipes"][1].update(state["decision"]["designRecipes"][0])
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design recipes differ across at least three design axes", result.stdout)
+
+    def test_v3_decision_rejects_untranslated_uiux_research(self):
+        state = valid_v3_state()
+        state["decision"]["designRecipes"][0]["adoptedConstraints"] = []
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design recipe translates ui-ux-pro-max research", result.stdout)
+
+    def test_v3_decision_rejects_stale_visual_direction_preview_hash(self):
+        task = self.write_task(valid_v3_state())
+        (task / "visual-direction-preview.html").write_text("changed", encoding="utf-8")
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design orchestration preview hash matches the current file", result.stdout)
+
+    def test_v3_decision_rejects_a_broken_design_artifact_hash_chain(self):
+        task = self.write_task(valid_v3_state())
+        path = task / "workflow-state.json"
+        state = json.loads(path.read_text(encoding="utf-8"))
+        state["decision"]["designOrchestration"]["artifacts"][2]["inputSha256"] = "0" * 64
+        path.write_text(json.dumps(state), encoding="utf-8")
+        result = self.check(task, "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design orchestration artifact input hash chain is continuous", result.stdout)
+
+    def test_v3_execution_rejects_design_html_changed_after_orchestration(self):
+        task = self.write_task(valid_v3_state())
+        (task / "design.html").write_text("<div class='slide'>changed</div>", encoding="utf-8")
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design orchestration execution hash matches the current HTML", result.stdout)
+
+    def test_v3_execution_rejects_preview_changed_after_orchestration(self):
+        task = self.write_task(valid_v3_state())
+        (task / "visual-direction-preview.html").write_text("changed", encoding="utf-8")
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("design orchestration preview hash matches the current file", result.stdout)
+
+    def test_v3_execution_requires_the_confirmed_design_recipe_in_every_slide(self):
+        html = V3_HTML.replace("data-design-recipe='thesis-led'", "")
+        result = self.check(self.write_task(valid_v3_state(), html), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("embeds the confirmed design recipe", result.stdout)
 
     def test_v3_decision_requires_explicit_intent_bindings(self):
         state = valid_v3_state()

@@ -1,4 +1,4 @@
 interface:
-  display_name: "Axi PPT Execution"
-  short_description: "Build the approved PPT direction as HTML-first slides."
-  default_prompt: "Use $axi-front-design to execute the approved direction for this PPT."
+  display_name: "Axi PPT Design Renderer"
+  short_description: "Render PPT samples and approved deck HTML."
+  default_prompt: "Use $axi-front-design to render auditable PPT samples and the approved HTML deck."

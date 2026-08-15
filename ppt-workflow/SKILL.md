@@ -30,12 +30,12 @@ V3 还必须生成 `decision.intentBindings`：将问卷答案明确绑定到内
 ## 四层架构
 
 ```
-准备层（一次性）          设计决策层           执行层                   交付层
-  docx         →    claude-design     axi-front-design          html-to-pptx
-  vision-qwen  →    ui-ux-pro-max    (Phase 1/2 提问 → 预览     (导出 pptx)
-  pdf-reading  →    frontend-design   → 锁定 → 核实 → 选版式      → 视觉 audit
-  WebSearch    →    mbb-decks         → 全量展开 → 逐页           → 交付
-                    (可选，咨询场景)    ppt-visual-effects)
+准备层（一次性）          设计决策层                              执行层                 交付层
+  docx         →    前 12 项 V3 意图确认                       axi-front-design       html-to-pptx
+  vision-qwen  →    claude-design -> ui-ux-pro-max             (选定配方预览 -> 全量   (导出 pptx)
+  pdf-reading  →    -> mbb-decks -> frontend-design             展开 -> 逐页增强)      → 视觉 audit
+  WebSearch    →    -> axi-front-design 三方案样张
+                    -> 第 13 项确认 -> 护照锁定/正式决策
 ```
 
 > ⚠️ **ppt-visual-effects 是显式调用，不是自动拦截。** 执行层展开每页后，必须主动加载 `Skill("ppt-visual-effects")` 对当前页做扫描+判断+生成代码。流程图箭头是示意流程方向，不代表自动触发。
@@ -145,8 +145,8 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer pr
 | 层 | 填充字段 |
 |----|---------|
 | 准备层 | 主题、源素材路径（含 content-inventory.md）、页数/章节（估算）、research-done |
-| Phase 1/2 询问 | 受众、沟通意图、核心主张、画布、页数确认、内容处理、风格版本数、主题方案、字号强度、图片来源等 |
-| 设计决策层 | 从 Phase 1/2 结果写入：主色、强调色、底色、标题/正文字体、风格方向、品牌关键词 |
+| V3 意图与样张确认 | 前 12 项意图、三套样张、第 13 项确认；页数、内容处理和图片来源记录在 phase2 |
+| 设计决策层 | 从选中设计配方与正式审查写入：主色、强调色、底色、标题/正文字体、风格方向、品牌关键词 |
 | 执行层 | 继承全部字段作为设计约束 — 不自行覆盖 |
 
 ### spec_lock 锁定纪律（吸收自 ppt-master）
@@ -165,34 +165,26 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer pr
 
 ## 第 2 层：设计决策层 — 定方向，不定稿
 
-**⚠️ 进入本层前，必须完成 13 项意图采集的 3 轮创作者确认**。第一批是受众/意图/核心主张/画布；第二批是语言/期望结果/使用场景/交付用途；第三批是故事线/内容侧重点/信息密度/**设计大胆程度（1 保守至 5 实验性）**/参考风格。材料只可生成推荐选项，不能代替创作者作答；不得推断、假设或自动填充。将每项问题、回答、`creator-confirmed` 来源和创作者回复证据写入 `decision.intentQuestionnaire`，运行 `check_workflow_state.py --layer intent` 全部 PASS 后，才能加载设计 skill、生成预览或展开页面。
+**⚠️ 进入本层前，先完成 V3 前 12 项意图采集的三轮创作者确认。**第一批是受众/意图/核心主张/画布；第二批是语言/期望结果/使用场景/交付用途；第三批是故事线/内容侧重点/信息密度/设计大胆程度（1 保守至 5 实验性）。材料只可生成推荐选项，不能代替创作者作答；不得推断、假设或自动填充。将每项问题、回答、`creator-confirmed` 来源和创作者回复证据写入 `decision.intentQuestionnaire`，并将内容、构图、交付边界写入 `decision.intentBindings`。此时问卷必须为 `completed: false`；运行 `check_workflow_state.py --layer intent` 通过后，才能加载设计 skill。
 
-按场景判断用哪个：
+固定执行 `claude-design -> ui-ux-pro-max -> mbb-decks -> frontend-design -> axi-front-design`，不得按场景跳过。明确的创作者风格是三套候选之一的锚点，不是跳过 `claude-design` 的快速路径；咨询叙事也不能跳过 `mbb-decks` 或强制采用咨询视觉主题。
 
-| 场景 | 用哪个 skill | 做什么 |
-|------|-------------|--------|
-| 用户没想法、不知道要什么风格 | `claude-design` | 从 10 种设计语言出 3 个差异方向，用户选 |
-| **用户有明确风格要求**（如"我要极简白/瑞士网格/党政风"） | **跳过 claude-design** | 直接进入 Phase 2，主题方案选项只含用户指定的主题 + 2 个映射表替代（快速路径，见下） |
-| 需要精确设计 token（配色/字体/间距具体数值） | `ui-ux-pro-max` | 搜索配色+字体+风格数据库（**首次使用先跑 `--fetch-data` 初始化数据目录**，见该 skill） |
-| 用户要求 MECE/行动标题/咨询报告格式 | `mbb-decks` | 只出 ghost deck 定故事线，确认后走标准流水线渲染（不自行渲染 PPTX） |
-| 所有场景 | `frontend-design` | 全程辅助，确保每个选择有"原因"而非模板惯性 |
+五步分别生成 `design-directions.md`、`design-research.md`、`ghost-deck.md`、`frontend-design-review.md`、`visual-direction-preview.html`。把五项文件及其连续输入哈希、三套完整配方写入 `design-orchestration.json`、`decision.designOrchestration` 和 `decision.designRecipes`。每套配方都必须有本地主题、叙事结构、构图、视觉签名和 UI/UX 研究的本地约束转译；任意两套至少在三个设计轴不同。
 
-> **明确风格快速路径**：用户已指定风格方向时，跳过 claude-design 的三方向顾问模式（省去一轮不必要探索）。把用户指定的风格名直接映射到 theme-tokens.md 末尾映射表对应主题；若用户给的是非标准说法（如"性冷淡风"），先到映射表/主题目录里找到最接近的主题名，再进 Phase 2 让用户确认。
-
-产出：确定的设计方向声明。从 Phase 1/2 用户回答中提取颜色/字体/风格/品牌关键词，写入设计护照的数据决策字段。**主题方案通过 claude-design 映射表 + 用户 Phase 2 选择确定**。执行层继承全部字段。
+运行 `check_workflow_state.py --layer design --task <task_dir>`。只有通过这个样张确认前门禁，才能展示三套样张并询问第 13 项 `visualSampleConfirmation`。确认后将选中配方写入 `decision.designProfile`、`decision.designOrchestration.selectedRecipeId` 和 `decision.passport.designProfile`，然后再进行原有的反模板审查和正式预览。
 
 ### 反模板审查检查点
 
-**时机：Phase 1/2 完成后、Step 1 方案预览之前**（此时设计护照的配色/字体/主题方案字段已填入）。审查时注意：
+**时机：第 13 项已确认选中配方后、正式 `preview.html` 批准前。**此时设计护照的配色、字体、主题方案字段已经由选中配方锁定。审查时注意：
 
 - **审查对象**：设计护照中的风格方向、主题方案、配色 hex、字体选择
 - **审查依据**：对照 `layout-library.md` 末尾「反 AI 俗套清单」（13 条，合集唯一权威版本）+ `design-system.md` token 层反俗套约束
 - **标记并替代**：标记可能滑向 AI 俗套的选型（cream 底色 F4F1EA、Inter/Roboto 默认字体、emojis 图标、纯卡片堆叠、无数据页用数据版式），给出 1-2 个替代方案
 - **执行与证据**：运行 `ppt-workflow-review` 的审查程序；审查的具体规则以合集两条反俗套清单为准。将结论写入 `anti-template-review.json`（包含 `schemaVersion: 1`、`skill: "ppt-workflow-review"`、`result`、`notes` 和覆盖 `intent/evidence/theme/typography/layouts` 的 `reviewedAreas`），再将同一结论和文件名登记到 `decision.antiTemplateReview`。
 
-**一次即可，不需要每页重复。** 审查发现问题则替换有问题的选型，无问题则带着审查结论进入 Step 1 方案预览。**锁定发生在 Step 2（用户选定方案后），不是审查环节**——审查只是给方案预览前的护照把关。
+**一次即可，不需要每页重复。**审查发现问题则重新生成受影响的配方、样张和确认；无问题则带着审查结论进入正式预览。锁定发生在第 13 项确认后，审查不得替换已确认配方。
 
-### 设计决策层强制自检清单（方案预览前逐项打勾）
+### 设计决策层强制自检清单（正式预览批准后逐项打勾）
 
 **⛔ 自检方式：运行检查脚本，不要纯靠记忆打勾。**
 
@@ -200,14 +192,13 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer pr
 python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer decision --task <task_dir>
 ```
 
-脚本自动核对 Phase 1/2 的非空答案、完整设计护照和有结论的反模板审查。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入方案预览。**
+脚本自动核对 V3 完整问卷、五项编排证据、完整设计护照、反模板审查和已批准的正式预览。**任何 FAIL 项必须修正后重跑，全部 PASS 才进入全量展开。**
 
 ```
 [ ] check_workflow_state.py --layer decision 已运行且全部 PASS
-[ ] Phase 1 完成（受众/意图/核心主张/画布）
-[ ] 按场景选了 skill（claude-design / ui-ux-pro-max / mbb-decks / 跳过快速路径）
-[ ] 方向名称用了 10 种设计语言的精确名称（映射表可匹配）
-[ ] Phase 2 完成（页数/主题方案/风格版本数等）
+[ ] 前 12 项意图确认、五项固定 skill 编排及第 13 项样张确认均已完成
+[ ] 三套配方在至少三个设计轴不同，且每套都已转译为本地主题和约束
+[ ] 选定配方、护照和 `design-orchestration.json` 的哈希绑定一致
 [ ] 反模板审查已做，并有 `anti-template-review.json` 作为证据（一致登记到 manifest）
 [ ] 设计护照 4 个关键字段已填：配色 hex / 字体 / 风格方向 / 主题方案
 [ ] `preview.html` 已包含封面和代表性内容页；用户确认记录已写入 `workflow-state.json` 的 `decision.preview`
@@ -219,36 +210,13 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 **必须严格按 axi-front-design 规定的幻灯片工作流。**
 
-### 用户提问：统一用 axi-front-design Phase 1/2 框架
+### 用户提问与正式预览
 
-**合并所有用户提问到一个入口。** 设计中层（claude-design/ux-pro-max/mbb）和 ppt-workflow 本身不再单独定义提问清单——所有"问用户"走 `axi-front-design` 的两阶段确认：
+`ppt-workflow-intake` 是唯一的意图采集入口：前 12 项按 `4+4+4` 依次确认，三方案通过样张确认成为第 13 项。不得再用旧的 Phase 2 风格选择或默认假设覆盖这些答案。页数、内容处理和图片来源仍按原有 `decision.phase2` 记录，但主题、配色、字体和风格必须来自选中的设计配方与锁定护照。
 
-- **Phase 1 沟通契约**（13 项：语言/受众/沟通意图/期望结果/核心主张/场景/交付用途/故事线/**内容侧重点/信息密度/设计大胆程度/参考风格**）
-- **Phase 2 设计方案**（10 项：页数/模板/内容处理/风格版本数/主题/配色/图标/图片来源/字号强度/辅助产出）
+对已确认的配方，`axi-front-design` 先产出 `preview.html`：多页 deck 包含封面和一张典型内容页；单页交付物只预览其唯一成品页。`ppt169` 使用 1920×1080 画布、正文不小于 24px；非 16:9 画布遵守 `references/canvas-formats.md`。记录 `decision.preview` 的 slide ID、创作者批准和说明，正式 `--layer decision` 通过后才允许展开全部页面。
 
-分批规则：每次 `AskUserQuestion` ≤ 4 问；第一批优先（受众/意图/核心主张/画布是最重要的四个）；其余两批在预览前问。设计大胆程度必须记录为 1-5 的创作者确认值，不能由模型代填。
-
-**Phase 1 材料驱动选项**：有 content-inventory.md 时，Phase 1 的**选项由 agent 读材料后现场生成**（从数据形态/章节骨架/语气立场/图表暗示/受众线索/内容密度 6 类特征推导），每个选项必须能在材料里找到出处；核心主张从材料「核心信息」字段提炼 2-3 个候选 + Other 兜底。无材料（纯口述）时回退到通用骨架。详细推导规则见 `<collection_root>/references/material-driven-questioning.md`。
-
-**Phase 1 尽早问，Phase 2 不浪费**：Phase 1 在 claude-design 出方向**之前**问（让方向建议有受众/意图上下文）；Phase 2 在步骤 1 方案预览**之前**问。两者不合并到一轮里——批次分开才能让中间产物受益。
-
-**快速路径**：口述主题无源文件的场景，Phase 2 可基于默认假设自动跳过约 5-7 项——只确认「页数/主题方案/风格版本数/图片来源/字号强度」5 项，"模板"（自由设计）、"内容处理"（扩展补充）、"辅助产出"（只要 PPT）按默认值自动填，不弹窗。
-
-这里也负责填充数据护照的"设计决策层"字段（受众、画布、页数、风格方向、主题方案等），因为用户在这一步做出选择。
-
-### Step 1: 出方案预览（封面 + 1-2 张内容页）
-
-**前置**：先加载 `<collection_root>/references/design-system.md` + `<collection_root>/references/theme-tokens.md`；3 个候选主题名的来源取决于场景：
-- **标准场景**（claude-design 出方向）：claude-design 方向 → theme-tokens.md 映射表 → 3 个候选主题名。**⚠️ claude-design 输出方向时，方向名称必须使用 10 种设计语言的精确名称（如「瑞士编辑式」「包豪斯几何」，见 theme-tokens.md 映射表左列）——不要用近义改写（如"瑞士风格""几何感"），否则映射表无法匹配。**
-- **咨询场景**（mbb-decks）：候选 = `mbb-consulting` + 映射表推荐的 2 个备选（如 corporate-clean）→ 3 个候选
-
-候选主题在 Phase 2「主题方案」选项中呈现给用户确认。若 Phase 2 用户已选 1 个主题，Step 1 展示该主题的 3 个风格变体（如字号强度差异／叙事 vs 事实 mode）；若 Phase 2 用户未选（选了"你来定"），Step 1 展示 3 个不同主题的方案预览。从 theme-tokens.md 读取对应主题的完整 token。
-
-- 多页 deck：至少在同一个 HTML 文件中展示封面 + 1 张典型内容页（tab 或并列皆可）；**单页交付物**（如公众号头图、单页 A4 海报）则展示该唯一成品页并记录用户确认，不要为了通过门禁虚构第二页
-- `ppt169` 使用 1920×1080 canvas，正文 ≥ 24px；非 16:9 画布按
-  `<collection_root>/references/canvas-formats.md` 的原生尺寸和字号规则实现
-- 多页 deck 的每版展示：封面 + 1 张典型内容页（如部门总述）；单页交付物沿用其唯一成品页
-- 每版附风格描述 + 该主题的 accent hex 色块
+### Step 1: 选定方案的正式预览
 
 ### Step 2: 用户选定方案 → 锁定设计护照
 - **⛔ 门禁：选定方案后先锁设计护照（见 spec_lock 纪律）。展开过程中不漂移。**
@@ -457,16 +425,19 @@ Skill("docx") 或 Skill("vision-qwen") 或 WebSearch(facts+data)  # 读素材或
 Write content-inventory.md                                      # 写内容盘点（含源全文/数据/页数预判）
 Bash: test -f html-to-pptx/convert.py                           # ⚠️ 提前门禁：检查convert.py是否存在
 
-# === Phase 1 前置（⚠️ 在 claude-design 之前）===
-AskUserQuestion Phase 1                                         # 受众/意图/核心主张/画布（claude-design 的前置上下文）
-
-# === 设计决策层 ===
-Skill("claude-design")                          # 出 3 方向（→ 映射表 → 候选主题名）
-Skill("ui-ux-pro-max")                          # 搜索配色/字体/风格数据库（按需）
-
-# === 方案预览前（Phase 2 + 反模板审查）===
-AskUserQuestion Phase 2                                         # 页数/主题方案/风格版本数等（含 claude-design 映射的候选主题）
-Skill("frontend-design")                        # 反模板审查（需 Phase 1/2 结果已填，审查设计护照）
+# === V3 设计决策层 ===
+AskUserQuestion batches 1-3                                   # 前 12 项创作者意图（4+4+4）
+python check_workflow_state.py --layer intent --task <task_dir>
+Skill("claude-design")                          # 三个差异化设计语言候选
+Skill("ui-ux-pro-max")                          # 三套候选的本地 token / 可访问性转译
+Skill("mbb-decks")                              # 三套候选的故事线与页面计划
+Skill("frontend-design")                        # 三套候选的独特性和反模板审查
+Skill("axi-front-design")                       # 产出 visual-direction-preview.html
+python check_workflow_state.py --layer design --task <task_dir>
+AskUserQuestion batch 4                         # 第 13 项样张确认
+Skill("ppt-workflow-review")                    # 选中配方的正式反模板审查
+Skill("axi-front-design")                       # 选中配方的 preview.html
+python check_workflow_state.py --layer decision --task <task_dir>
 
 # === 执行层 ===
 Read <collection_root>/references/quick-reference-card.md  # 执行前速查卡（精简替代通读全部资产库）
@@ -476,7 +447,7 @@ Read <collection_root>/references/theme-tokens.md          # 选定主题的完�
 Read <collection_root>/references/layout-library.md        # 41 布局选版式（含选版式决策表，选版式时按需跳读）
 Read <collection_root>/references/composition-patterns.md  # 大胆程度到复杂构图的映射
 Read <collection_root>/references/web-image-sourcing.md    # 网络配图或无图的决策与许可记录
-Skill("axi-front-design")                       # 预览→展开
+Skill("axi-front-design")                       # 基于选中配方展开 design.html
 Skill("ppt-visual-effects")                     # 逐页增强（逐页扫描，加载一次即可）
 
 # === 交付层 ===
@@ -488,7 +459,9 @@ Skill("html-to-pptx")                           # 导出 PPTX（convert.py 已�
 ```bash
 # 准备层完成时
 python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer prep --task <task_dir>
-# 决策层完成时（方案预览前）
+# 样张确认前：五个专属设计产物与三套配方
+python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer design --task <task_dir>
+# 决策层完成时（选中配方的正式预览批准后）
 python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer decision --task <task_dir>
 # 执行层完成时（展开全量后、交付前）
 python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer exec --task <task_dir>

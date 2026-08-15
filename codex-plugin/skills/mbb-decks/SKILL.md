@@ -1,12 +1,13 @@
 ---
 name: mbb-decks
-description: Build a consulting-style argument, action titles, and ghost deck for a PPT Workflow Studio task when the creator requests MECE, recommendation, or consulting-report reasoning. Use in the canonical design-decision layer without imposing an MBB visual theme.
+description: Shape an evidence-led argument, storyline, action titles, and page plan for every V3 PPT design direction. Use after UI UX research and before design review or visual samples; do not impose an MBB visual theme.
 ---
 
-# MBB Storyline For PPT
+# PPT Storyline Directions
 
-Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Follow `ppt-workflow/SKILL.md` and read `design-assets/mbb-decks/SKILL.md` as the authority.
+Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Read `design-assets/mbb-decks/SKILL.md` as the authority. Work only in the task directory containing `workflow-state.json`.
 
-1. Use this bridge for consulting-style narrative needs, not as a forced visual style.
-2. Create the ghost-deck/storyline evidence required by the source skill, grounded in the material inventory.
-3. Hand the selected narrative back to the existing passport, preview, and review gates; do not render a PPTX directly.
+1. Verify `design-research.md` exists and its recorded SHA-256 is current. Use the supplied evidence and intent bindings; do not invent claims.
+2. Give each recipe a distinct argument, storyline, action-title treatment, page plan, and chart-expression choice. MBB discipline informs the story, not a mandatory consulting appearance.
+3. Write `<task>/ghost-deck.md`. Include every recipe ID and `Input SHA-256: <design-research.md hash>`.
+4. Register the current file SHA-256 as the third `decision.designOrchestration.artifacts` record. Do not choose a direction or render samples.

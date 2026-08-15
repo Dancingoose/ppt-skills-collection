@@ -1,4 +1,4 @@
 interface:
-  display_name: "UI UX Tokens For PPT"
-  short_description: "Research concrete PPT visual tokens and constraints."
-  default_prompt: "Use $ui-ux-pro-max to select verified visual tokens for this PPT."
+  display_name: "UI UX Research for PPT"
+  short_description: "Translate UI UX research into PPT constraints."
+  default_prompt: "Use $ui-ux-pro-max to research and constrain PPT design recipes."

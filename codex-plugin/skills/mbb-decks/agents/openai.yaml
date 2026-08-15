@@ -1,4 +1,4 @@
 interface:
-  display_name: "MBB PPT Storyline"
-  short_description: "Build consulting-style arguments and ghost decks."
-  default_prompt: "Use $mbb-decks to structure this PPT as an evidence-led consulting story."
+  display_name: "MBB Deck Storyline"
+  short_description: "Shape evidence-led PPT storylines."
+  default_prompt: "Use $mbb-decks to create the storyline for each PPT design direction."

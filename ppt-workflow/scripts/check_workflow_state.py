@@ -68,6 +68,22 @@ COMPOSITION_FAMILIES = {
     "modular-grid", "asymmetric-columns", "full-bleed-sequence", "editorial-stack",
     "process-flow", "matrix", "timeline", "single-axis", "comparison-split",
 }
+DESIGN_ORCHESTRATION_SKILLS = (
+    "claude-design", "ui-ux-pro-max", "mbb-decks",
+    "frontend-design", "axi-front-design",
+)
+DESIGN_ORCHESTRATION_FILES = {
+    "claude-design": "design-directions.md",
+    "ui-ux-pro-max": "design-research.md",
+    "mbb-decks": "ghost-deck.md",
+    "frontend-design": "frontend-design-review.md",
+    "axi-front-design": "visual-direction-preview.html",
+}
+DESIGN_AXES = (
+    "narrativeStance", "compositionGeometry", "visualTemperature",
+    "typographicLanguage", "informationStructure", "imageTreatment",
+    "chartLanguage", "motionStrategy",
+)
 
 
 def intent_questions_for_schema(schema_version):
@@ -248,7 +264,12 @@ def check_intent(state, task_dir, v):
         return
     schema_version = intake.get("schemaVersion")
     v.require(schema_version in {1, 2, 3}, "intent questionnaire has a supported schema version")
-    questions = intent_questions_for_schema(schema_version)
+    design_profile = decision.get("designProfile", {})
+    pre_design_v3 = (
+        schema_version == 3
+        and not design_profile
+    )
+    questions = INTENT_QUESTIONS_V3[:12] if pre_design_v3 else intent_questions_for_schema(schema_version)
     question_batch = dict(questions)
     expected_batch_order = list(dict.fromkeys(batch for _, batch in questions))
     expected_by_batch = {
@@ -256,14 +277,17 @@ def check_intent(state, task_dir, v):
         for batch in expected_batch_order
     }
     v.require(intake.get("skill") == "ppt-workflow-intake", "intent questionnaire uses the packaged intake skill")
-    design_profile = decision.get("designProfile", {})
     revision_requested = (
         schema_version == 3
         and isinstance(design_profile, dict)
         and design_profile.get("status") == "revision-requested"
     )
-    v.require(intake.get("completed") is True or revision_requested,
-              "intent questionnaire is marked complete")
+    if pre_design_v3:
+        v.require(intake.get("completed") is False,
+                  "pre-design intent questionnaire remains incomplete before visual samples")
+    else:
+        v.require(intake.get("completed") is True or revision_requested,
+                  "intent questionnaire is marked complete")
 
     responses = intake.get("responses")
     v.require(isinstance(responses, list) and len(responses) == len(questions),
@@ -413,6 +437,136 @@ def check_design_profile(decision, task_dir, v):
     return status == "confirmed"
 
 
+def check_design_orchestration(decision, task_dir, v, html_path=None, require_selection=True):
+    """Require the fixed design-skill chain and bind its output to the task."""
+    orchestration = decision.get("designOrchestration", {})
+    v.require(isinstance(orchestration, dict), "design orchestration is recorded")
+    orchestration = orchestration if isinstance(orchestration, dict) else {}
+    v.require(orchestration.get("schemaVersion") == 1, "design orchestration has schema version 1")
+    artifact_name = v.value(orchestration, "artifact", "design orchestration artifact is recorded")
+    artifact_path = task_artifact_path(task_dir, artifact_name)
+    v.require(artifact_path is not None and artifact_path.is_file(), "design orchestration artifact exists")
+    artifact_document = load_json_artifact(task_dir, artifact_name, "design orchestration", v)
+    actual_orchestration_hash = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path and artifact_path.is_file() else ""
+    recorded_orchestration_hash = v.value(orchestration, "sha256", "design orchestration artifact records its SHA-256")
+    v.require(normalized_sha256(recorded_orchestration_hash) == actual_orchestration_hash,
+              "design orchestration artifact hash matches the current file")
+    v.require(artifact_document.get("schemaVersion") == 1, "design orchestration artifact has schema version 1")
+
+    bindings = decision.get("intentBindings", {})
+    bindings_hash = canonical_sha256(bindings) if isinstance(bindings, dict) else ""
+    v.require(normalized_sha256(orchestration.get("intentBindingsSha256")) == bindings_hash,
+              "design orchestration is bound to the current intent constraints")
+    v.require(artifact_document.get("intentBindingsSha256") == orchestration.get("intentBindingsSha256"),
+              "design orchestration artifact agrees with intent constraint binding")
+
+    records = orchestration.get("artifacts")
+    v.require(isinstance(records, list) and [item.get("skill") for item in records if isinstance(item, dict)]
+              == list(DESIGN_ORCHESTRATION_SKILLS)
+              and [item.get("file") for item in records if isinstance(item, dict)]
+              == [DESIGN_ORCHESTRATION_FILES[skill] for skill in DESIGN_ORCHESTRATION_SKILLS],
+              "design orchestration records every required skill artifact")
+    v.require(artifact_document.get("artifacts") == records,
+              "design orchestration artifact agrees with the manifest skill artifacts")
+    records = records if isinstance(records, list) else []
+    expected_input_hash = bindings_hash
+    for record in records:
+        record = record if isinstance(record, dict) else {}
+        skill = record.get("skill")
+        filename = record.get("file")
+        path = task_artifact_path(task_dir, filename)
+        v.require(path is not None and path.is_file(), f"design orchestration {skill} artifact exists")
+        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest() if path and path.is_file() else ""
+        v.require(normalized_sha256(record.get("inputSha256")) == expected_input_hash,
+                  "design orchestration artifact input hash chain is continuous")
+        content = path.read_text(encoding="utf-8", errors="ignore") if path and path.is_file() else ""
+        v.require(bool(re.search(rf"Input SHA-256:\s*{re.escape(expected_input_hash)}\b", content, re.I)),
+                  f"design orchestration {skill} artifact records its reviewed input hash")
+        v.require(normalized_sha256(record.get("sha256")) == actual_hash,
+                  f"design orchestration {skill} artifact hash matches the current file")
+        expected_input_hash = actual_hash
+
+    recipes = decision.get("designRecipes")
+    v.require(isinstance(recipes, list) and len(recipes) == 3,
+              "design orchestration records exactly three design recipes")
+    recipes = recipes if isinstance(recipes, list) else []
+    v.require(artifact_document.get("recipes") == recipes,
+              "design orchestration artifact and manifest agree on design recipes")
+    recipe_ids = []
+    for recipe in recipes:
+        recipe = recipe if isinstance(recipe, dict) else {}
+        recipe_id = v.value(recipe, "id", "design recipe has an id")
+        if isinstance(recipe_id, str):
+            recipe_ids.append(recipe_id)
+        for key in ("theme", "signature", *DESIGN_AXES):
+            v.value(recipe, key, f"design recipe {recipe_id!r} has {key}")
+        lenses = recipe.get("sourceLenses")
+        v.require(isinstance(lenses, list) and lenses == list(DESIGN_ORCHESTRATION_SKILLS),
+                  "every design recipe uses every required design skill lens")
+        sample_slide_ids = recipe.get("sampleSlideIds")
+        v.require(isinstance(sample_slide_ids, list) and len(sample_slide_ids) >= 2
+                  and all(isinstance(slide_id, int) for slide_id in sample_slide_ids),
+                  f"design recipe {recipe_id!r} records sample slide ids")
+        constraints = recipe.get("adoptedConstraints")
+        v.require(isinstance(constraints, list) and bool(constraints)
+                  and all(isinstance(item, str) and item.strip() for item in constraints),
+                  "design recipe translates ui-ux-pro-max research")
+    v.require(len(recipe_ids) == 3 and len(recipe_ids) == len(set(recipe_ids)),
+              "design recipe ids are unique")
+    for first, second in itertools.combinations(recipes, 2):
+        first = first if isinstance(first, dict) else {}
+        second = second if isinstance(second, dict) else {}
+        differences = sum(first.get(axis) != second.get(axis) for axis in DESIGN_AXES)
+        v.require(differences >= 3, "design recipes differ across at least three design axes")
+
+    preview_name = DESIGN_ORCHESTRATION_FILES["axi-front-design"]
+    preview_path = task_artifact_path(task_dir, preview_name)
+    preview_html = preview_path.read_text(encoding="utf-8", errors="ignore") if preview_path and preview_path.is_file() else ""
+    preview_hash = hashlib.sha256(preview_path.read_bytes()).hexdigest() if preview_path and preview_path.is_file() else ""
+    v.require(normalized_sha256(orchestration.get("previewSha256")) == preview_hash,
+              "design orchestration preview hash matches the current file")
+    v.require(artifact_document.get("previewSha256") == orchestration.get("previewSha256"),
+              "design orchestration artifact agrees with preview hash")
+    for recipe_id in recipe_ids:
+        v.require(bool(re.search(rf"data-design-recipe=[\"']{re.escape(recipe_id)}[\"']", preview_html)),
+                  f"design orchestration preview embeds recipe {recipe_id}")
+
+    if require_selection:
+        selected_recipe_id = orchestration.get("selectedRecipeId")
+        profile = decision.get("designProfile", {})
+        profile = profile if isinstance(profile, dict) else {}
+        v.require(selected_recipe_id in recipe_ids and selected_recipe_id == profile.get("selectedProfileId"),
+                  "selected design recipe matches the confirmed design profile")
+        v.require(artifact_document.get("selectedRecipeId") == selected_recipe_id,
+                  "design orchestration artifact locks the selected design recipe")
+    else:
+        v.require(not orchestration.get("selectedRecipeId"),
+                  "pre-selection design orchestration does not select a recipe")
+        v.require(not artifact_document.get("selectedRecipeId"),
+                  "pre-selection design orchestration artifact does not select a recipe")
+
+    if html_path is not None:
+        execution_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path.is_file() else ""
+        v.require(normalized_sha256(orchestration.get("executionHtmlSha256")) == execution_hash,
+                  "design orchestration execution hash matches the current HTML")
+    return orchestration
+
+
+def check_design_candidates(state, task_dir, v):
+    """Validate the fixed five-skill chain before the creator sees batch 4."""
+    check_intent(state, task_dir, v)
+    decision = state.get("decision", {})
+    intake = decision.get("intentQuestionnaire", {})
+    v.require(isinstance(intake, dict) and intake.get("schemaVersion") == 3,
+              "design candidate gate uses the V3 intake")
+    v.require(isinstance(intake, dict) and intake.get("completed") is False,
+              "design candidate gate runs before visual sample confirmation")
+    v.require(not decision.get("designProfile"),
+              "design candidate gate runs before a design profile is selected")
+    check_v3_intent_bindings(decision, v)
+    check_design_orchestration(decision, task_dir, v, require_selection=False)
+
+
 def check_v3_intent_bindings(decision, v):
     """Require V3 answers to become explicit content, composition, and delivery constraints."""
     bindings = decision.get("intentBindings", {})
@@ -482,6 +636,7 @@ def check_decision(state, task_dir, v):
     if isinstance(intake, dict) and intake.get("schemaVersion") == 3:
         design_profile_confirmed = check_design_profile(decision, task_dir, v)
         check_v3_intent_bindings(decision, v)
+        check_design_orchestration(decision, task_dir, v)
         v.require(design_profile_confirmed, "design profile is confirmed before formal decision")
     if isinstance(intake, dict) and intake.get("schemaVersion") == 2:
         boldness = phase2.get("designBoldness", {})
@@ -744,6 +899,7 @@ def check_execution(state, task_dir, v):
     planned_count = state.get("prep", {}).get("pagePlan", {}).get("count")
     v.require(len(slides) == planned_count, "execution slide count matches preparation plan")
     intake_schema = state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion")
+    selected_recipe_id = state.get("decision", {}).get("designOrchestration", {}).get("selectedRecipeId")
     phase2 = state.get("decision", {}).get("phase2", {})
     image_records = check_image_sourcing_plan(phase2, task_dir, expected_count, v)
     boldness_level = phase2.get("designBoldness", {}).get("level")
@@ -770,6 +926,11 @@ def check_execution(state, task_dir, v):
         )
         v.require(discoverable_tag, f"slide {slide_id} is explicitly discoverable by the converter")
         if intake_schema == 3:
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-design-recipe=[\"']{re.escape(selected_recipe_id) if isinstance(selected_recipe_id, str) else '(?!)'}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} embeds the confirmed design recipe")
             archetype = item.get("archetype")
             v.require(archetype in PAGE_ARCHETYPES, f"slide {slide_id} has a supported page archetype")
             v.require(any(
@@ -920,6 +1081,7 @@ def check_execution(state, task_dir, v):
     v.require(normalized_sha256(reviewed_html_hash) == actual_html_hash, "source HTML has not changed since visual review")
     check_color_continuity_review(execution.get("colorContinuityReview", {}), task_dir, html, html_path, slides, seen_ids, v)
     if intake_schema == 3:
+        check_design_orchestration(state.get("decision", {}), task_dir, v, html_path)
         check_v3_execution_reviews(
             execution, task_dir, html_path, slides, seen_ids,
             state.get("decision", {}).get("designProfile", {}).get("selectedProfileId"), v,
@@ -1079,19 +1241,24 @@ def check_delivery(state, task_dir, v):
 def main():
     parser = argparse.ArgumentParser(description="Validate structured PPT workflow evidence")
     parser.add_argument("--task", required=True, type=Path)
-    parser.add_argument("--layer", required=True, choices=("prep", "intent", "decision", "exec", "deliver", "all"))
+    parser.add_argument("--layer", required=True, choices=("prep", "intent", "design", "decision", "exec", "deliver", "all"))
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     v = Validator()
     state = load_state(args.task, v)
-    checks = {"prep": check_prep, "intent": check_intent, "decision": check_decision, "exec": check_execution, "deliver": check_delivery}
-    selected = checks if args.layer == "all" else {args.layer: checks[args.layer]}
+    checks = {"prep": check_prep, "intent": check_intent, "design": check_design_candidates, "decision": check_decision, "exec": check_execution, "deliver": check_delivery}
+    # The design gate is intentionally pre-selection; a completed workflow cannot
+    # satisfy it because the creator has already selected a recipe.
+    selected = (
+        {name: check for name, check in checks.items() if name != "design"}
+        if args.layer == "all" else {args.layer: checks[args.layer]}
+    )
     for name, check in selected.items():
         if name == "exec":
             check(state, args.task, v)
         elif name == "deliver":
             check(state, args.task, v)
-        elif name in {"prep", "decision", "intent"}:
+        elif name in {"prep", "design", "decision", "intent"}:
             check(state, args.task, v)
         else:
             check(state, args.task, v)
