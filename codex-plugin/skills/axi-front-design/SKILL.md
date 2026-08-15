@@ -1,13 +1,12 @@
 ---
 name: axi-front-design
-description: Render three auditable, distinct V3 PPT visual-direction samples from the completed design orchestration. Use after frontend-design review and before the creator confirms the final visual sample.
+description: Build the selected PPT Workflow Studio design as HTML-first slides after the existing design decision is approved. Use as the canonical execution-layer design skill, preserving the locked passport, preview, and review gates.
 ---
 
-# PPT Visual Direction Samples
+# Axi PPT Execution
 
-Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Read `axi-front-design/SKILL.md` as the authority. Work only in the task directory containing `workflow-state.json`.
+Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Follow `ppt-workflow/SKILL.md` and read `axi-front-design/SKILL.md` as the authority.
 
-1. Verify `frontend-design-review.md` exists and its recorded SHA-256 is current. Render all three reviewed directions, never a single default solution.
-2. Write `<task>/visual-direction-preview.html` with exactly one sample for each recipe. Each sample must carry `data-design-profile`, `data-design-recipe`, and its composition-family marker. Keep it as an inspection sample, not `preview.html` or `design.html`.
-3. Include `Input SHA-256: <frontend-design-review.md hash>` in an HTML comment. Register it as `inputSha256`, register the current sample SHA-256 as the fifth `decision.designOrchestration.artifacts` record, and write `design-orchestration.json` plus matching `decision.designRecipes`.
-4. Run the decision gate before asking the creator the 13th confirmation question. A failed gate means no visual selection, authoring, or conversion.
+1. Start only after the existing intent and design decision gates allow execution.
+2. Render the approved direction as HTML-first slides while preserving the locked passport and evidence boundaries.
+3. Hand the result to the existing review, effects, execution, and delivery gates. Do not create a second preview or design-selection contract.

@@ -1,4 +1,4 @@
 interface:
-  display_name: "Frontend Design Review"
-  short_description: "Review PPT directions for distinctiveness."
-  default_prompt: "Use $frontend-design to review PPT design directions for template drift."
+  display_name: "Frontend Design Review For PPT"
+  short_description: "Keep PPT design decisions specific and implementable."
+  default_prompt: "Use $frontend-design to review this PPT design decision before preview."

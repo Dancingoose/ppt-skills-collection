@@ -1,4 +1,4 @@
 interface:
-  display_name: "Axi PPT Visual Direction"
-  short_description: "Render auditable PPT visual direction samples."
-  default_prompt: "Use $axi-front-design to render three PPT visual direction samples."
+  display_name: "Axi PPT Execution"
+  short_description: "Build the approved PPT direction as HTML-first slides."
+  default_prompt: "Use $axi-front-design to execute the approved direction for this PPT."
