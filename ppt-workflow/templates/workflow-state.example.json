@@ -461,6 +461,14 @@
       "htmlSha256": "[SHA-256 of the reviewed execution HTML]",
       "notes": "逐页核验字体、留白、图片处理、图表语言与构图符合已确认方案。"
     },
+    "intentContinuityReview": {
+      "skill": "ppt-workflow-review",
+      "artifact": "intent-continuity-review.json",
+      "result": "pass",
+      "previewSha256": "[SHA-256 of preview.html]",
+      "executionHtmlSha256": "[SHA-256 of design.html]",
+      "notes": "复核意图、预览、执行和交付之间没有发生语义或视觉漂移。"
+    },
     "independentReview": {
       "result": "pass",
       "notes": "No overlap, overflow, or contrast issue."

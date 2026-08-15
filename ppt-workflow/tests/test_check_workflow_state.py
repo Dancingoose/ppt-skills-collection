@@ -249,6 +249,10 @@ def valid_v3_state():
             "selectedProfileId": selected["id"], "reviewedSlides": [1, 2], "htmlSha256": "",
             "notes": "Typography, spacing, image treatment, chart language, and composition match the selected profile.",
         },
+        "intentContinuityReview": {
+            "skill": "ppt-workflow-review", "artifact": "intent-continuity-review.json", "result": "pass",
+            "previewSha256": "", "executionHtmlSha256": "", "notes": "Intent, preview, execution, and delivery remain aligned.",
+        },
     })
     return state
 
@@ -366,6 +370,29 @@ class WorkflowStateTests(unittest.TestCase):
                     "reviewedDimensions": ["typography", "spacing", "imageTreatment", "chartLanguage", "composition"],
                     "exceptions": [], "notes": profile_review["notes"],
                 }), encoding="utf-8")
+            continuity_review = state["execution"].get("intentContinuityReview")
+            if isinstance(continuity_review, dict):
+                preview_path = task / state["decision"]["preview"]["html"]
+                continuity_review["previewSha256"] = hashlib.sha256(preview_path.read_bytes()).hexdigest()
+                continuity_review["executionHtmlSha256"] = hashlib.sha256((task / "design.html").read_bytes()).hexdigest()
+                bindings = state["decision"].get("intentBindings", {})
+                bindings_hash = hashlib.sha256(json.dumps(bindings, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+                responses = state["decision"]["intentQuestionnaire"].get("responses", [])
+                responses = responses if isinstance(responses, list) else []
+                (task / continuity_review["artifact"]).write_text(json.dumps({
+                    "schemaVersion": 1, "skill": continuity_review["skill"], "result": continuity_review["result"],
+                    "previewSha256": continuity_review["previewSha256"],
+                    "executionHtmlSha256": continuity_review["executionHtmlSha256"],
+                    "intentQuestionIds": [item.get("id") for item in responses if isinstance(item, dict)],
+                    "previewSlideIds": state["decision"]["preview"]["slideIds"],
+                    "executionSlideIds": [slide["id"] for slide in state["execution"]["slides"]],
+                    "selectedProfileId": state["decision"]["designProfile"]["selectedProfileId"],
+                    "intentBindingsSha256": bindings_hash,
+                    "checks": {"intentToPreview": "pass", "previewToExecution": "pass", "executionToDelivery": "pass"},
+                    "revisionRound": 1, "exceptions": [], "notes": continuity_review["notes"],
+                }), encoding="utf-8")
+            # Persist hashes populated while the file-backed review artifacts are built.
+            (task / "workflow-state.json").write_text(json.dumps(state), encoding="utf-8")
         self.addCleanup(directory.cleanup)
         return task
 
@@ -436,6 +463,20 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(self.write_task(state), "exec")
         self.assertEqual(result.returncode, 2)
         self.assertIn("deck rhythm review artifact is recorded", result.stdout)
+
+    def test_v3_execution_requires_intent_continuity_review(self):
+        state = valid_v3_state()
+        del state["execution"]["intentContinuityReview"]
+        result = self.check(self.write_task(state), "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("intent continuity review artifact is recorded", result.stdout)
+
+    def test_v3_execution_rejects_preview_changed_after_continuity_review(self):
+        task = self.write_task(valid_v3_state())
+        (task / "preview.html").write_text(PREVIEW_HTML + "<!-- changed after continuity review -->", encoding="utf-8")
+        result = self.check(task, "exec")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("intent continuity review applies to the current approved preview", result.stdout)
 
     def test_v3_execution_rejects_manifest_background_mode_drift(self):
         state = valid_v3_state()

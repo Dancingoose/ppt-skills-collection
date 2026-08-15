@@ -11,6 +11,8 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 
 V3 还必须生成 `decision.intentBindings`：将问卷答案明确绑定到内容、构图和交付，并记录内容必须包含/避免、视觉必须避免、交付必须支持的边界。没有这些可执行约束，决策层不能通过。
 
+执行完成后必须生成 `intent-continuity-review.json`，复核已确认意图、批准预览、最终 HTML 和交付审查是否仍然一致。任一环节改动都必须重新生成该审查，不能只修改 `workflow-state.json`。
+
 执行层的每页必须登记并在 HTML `.slide` 上标记页面原型：`hero`、`context`、`evidence`、`data`、`comparison`、`process`、`transition`、`recommendation` 或 `action`。十页及以上的文稿必须包含开场、数据或证据、转场和行动页，且不得连续三页同原型。完成后输出 `deck-rhythm-review.json` 与 `design-profile-review.json`，检查整套节奏以及字体、留白、图片处理、图表语言、构图是否持续遵守所选方案。
 
 # V3 构图族门禁

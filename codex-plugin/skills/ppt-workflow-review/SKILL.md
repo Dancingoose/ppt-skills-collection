@@ -9,6 +9,8 @@ description: Review an evidence-led PPT design before preview approval. Use for 
 
 审查不只看单页。输出 `deck-rhythm-review.json`，记录全部页面原型序列，拒绝连续三页相同原型；十页以上必须有 hero、data/evidence、transition、action。输出 `design-profile-review.json`，覆盖每一页和当前 HTML 哈希，审查 typography、spacing、imageTreatment、chartLanguage、composition 与已确认视觉方案的一致性，并记录例外和说明。
 
+V3 还必须输出 `intent-continuity-review.json`，把已确认问卷、批准的 `preview.html`、最终 `design.html` 和交付审查连接起来。它必须记录四者的文件哈希、页面 ID、选定方案、意图绑定哈希和三项链路检查：`intentToPreview`、`previewToExecution`、`executionToDelivery`。任何一个环节修改后都要重新审查，不能只更新状态文件。
+
 Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Work inside the task directory containing `workflow-state.json` and `content-inventory.md`.
 
 1. Confirm `check_workflow_state.py --layer intent` passes before review. Read the inventory, the creator-confirmed `decision.intentQuestionnaire`, Phase 1/2 decision fields, locked or proposed passport, and the relevant portions of `references/quick-reference-card.md`, `references/layout-library.md`, and `references/theme-tokens.md`.

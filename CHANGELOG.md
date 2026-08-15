@@ -1,5 +1,12 @@
 # Workflow Change Log
 
+## 2026-08-15 - Intent Continuity Quality Loop
+
+- Added V3 `intent-continuity-review.json` to bind confirmed intent, approved
+  preview, final HTML, and delivery evidence in one file-backed review.
+- The execution and delivery gates now reject stale preview/HTML hashes,
+  missing page coverage, or an unapproved intent-to-preview-to-execution chain.
+
 ## 2026-08-15 - Precision Intent Bindings
 
 - Added V3 `decision.intentBindings` so creator answers explicitly constrain

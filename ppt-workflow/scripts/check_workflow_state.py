@@ -128,6 +128,11 @@ def normalized_sha256(value):
     return value if re.fullmatch(r"[0-9a-f]{64}", value) else ""
 
 
+def canonical_sha256(value):
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def load_json_artifact(task_dir: Path, name, label, v: Validator):
     path = task_artifact_path(task_dir, name)
     v.require(path is not None and path.is_file(), f"{label} artifact exists")
@@ -626,7 +631,8 @@ def check_v3_execution_reviews(execution, task_dir, html_path, slides, seen_ids,
     v.require(artifact.get("skill") == "ppt-workflow-review", "deck rhythm review artifact identifies the review skill")
     v.require(artifact.get("result") == rhythm.get("result") and rhythm.get("result") in {"pass", "revised"},
               "deck rhythm review artifact has an approved result")
-    sequence = [{"id": item.get("id"), "archetype": item.get("archetype")} for item in slides]
+    sequence = [{"id": item.get("id"), "archetype": item.get("archetype"),
+                 "compositionFamily": item.get("compositionFamily")} for item in slides]
     v.require(artifact.get("archetypeSequence") == sequence, "deck rhythm review matches the execution archetype sequence")
     archetypes = [item.get("archetype") for item in slides]
     v.require(not any(archetypes[index:index + 3] == [archetypes[index]] * 3
@@ -661,6 +667,64 @@ def check_v3_execution_reviews(execution, task_dir, html_path, slides, seen_ids,
     v.require(isinstance(profile_artifact.get("exceptions"), list), "design profile review records exceptions as a list")
     v.value(review, "notes", "design profile review has notes")
     v.value(profile_artifact, "notes", "design profile review artifact has notes")
+
+
+def check_v3_intent_continuity_review(state, task_dir, html_path, slides, seen_ids, v):
+    """Verify that intent, approved preview, source HTML, and delivery review remain one chain."""
+    execution = state.get("execution", {})
+    decision = state.get("decision", {})
+    review = execution.get("intentContinuityReview", {})
+    v.require(review.get("skill") == "ppt-workflow-review",
+              "intent continuity review uses the packaged review skill")
+    artifact_name = v.value(review, "artifact", "intent continuity review artifact is recorded")
+    artifact = load_json_artifact(task_dir, artifact_name, "intent continuity review", v)
+    v.require(artifact.get("schemaVersion") == 1, "intent continuity review artifact has schema version")
+    v.require(artifact.get("skill") == "ppt-workflow-review",
+              "intent continuity review artifact identifies the review skill")
+    v.require(review.get("result") in {"pass", "revised"}, "intent continuity review has an approved result")
+    v.require(artifact.get("result") == review.get("result"),
+              "intent continuity review artifact agrees with the manifest result")
+
+    preview = decision.get("preview", {})
+    preview = preview if isinstance(preview, dict) else {}
+    preview_name = preview.get("html") if isinstance(preview, dict) else None
+    preview_path = task_artifact_path(task_dir, preview_name)
+    preview_hash = hashlib.sha256(preview_path.read_bytes()).hexdigest() if preview_path and preview_path.is_file() else ""
+    execution_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
+    for source in (review, artifact):
+        v.require(normalized_sha256(source.get("previewSha256")) == preview_hash,
+                  "intent continuity review applies to the current approved preview")
+        v.require(normalized_sha256(source.get("executionHtmlSha256")) == execution_hash,
+                  "intent continuity review applies to the current execution HTML")
+
+    intent_responses = decision.get("intentQuestionnaire", {}).get("responses", [])
+    intent_responses = intent_responses if isinstance(intent_responses, list) else []
+    expected_intent_ids = [item.get("id") for item in intent_responses if isinstance(item, dict)]
+    expected_slide_ids = [item.get("id") for item in slides]
+    v.require(artifact.get("intentQuestionIds") == expected_intent_ids,
+              "intent continuity review covers every confirmed intent answer in order")
+    v.require(artifact.get("previewSlideIds") == preview.get("slideIds"),
+              "intent continuity review covers the approved preview slides")
+    v.require(artifact.get("executionSlideIds") == expected_slide_ids,
+              "intent continuity review covers every execution slide")
+    selected_id = decision.get("designProfile", {}).get("selectedProfileId")
+    v.require(artifact.get("selectedProfileId") == selected_id,
+              "intent continuity review locks the selected visual profile")
+    bindings = decision.get("intentBindings", {})
+    v.require(artifact.get("intentBindingsSha256") == canonical_sha256(bindings),
+              "intent continuity review locks the current intent bindings")
+
+    checks = artifact.get("checks")
+    v.require(isinstance(checks, dict), "intent continuity review records its quality-loop checks")
+    checks = checks if isinstance(checks, dict) else {}
+    for key in ("intentToPreview", "previewToExecution", "executionToDelivery"):
+        v.require(checks.get(key) == "pass", f"intent continuity check {key} passes")
+    v.require(isinstance(artifact.get("revisionRound"), int) and artifact["revisionRound"] >= 1,
+              "intent continuity review records a revision round")
+    v.require(isinstance(artifact.get("exceptions"), list),
+              "intent continuity review records exceptions as a list")
+    v.value(review, "notes", "intent continuity review has notes")
+    v.value(artifact, "notes", "intent continuity review artifact has notes")
 
 
 def check_execution(state, task_dir, v):
@@ -860,6 +924,7 @@ def check_execution(state, task_dir, v):
             execution, task_dir, html_path, slides, seen_ids,
             state.get("decision", {}).get("designProfile", {}).get("selectedProfileId"), v,
         )
+        check_v3_intent_continuity_review(state, task_dir, html_path, slides, seen_ids, v)
     review = execution.get("independentReview", {})
     v.require(review.get("result") in {"pass", "revised"}, "independent execution review has a result")
     v.value(review, "notes", "independent execution review has notes")
@@ -870,6 +935,8 @@ def check_delivery(state, task_dir, v):
     delivery = state.get("delivery", {})
     phase2 = state.get("decision", {}).get("phase2", {})
     intake_schema = state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion")
+    if intake_schema == 3:
+        check_execution(state, task_dir, v)
     if intake_schema == 2 and phase2.get("motionDelivery", {}).get("mode") == "pptx-plus-live-html":
         v.require(isinstance(delivery.get("output"), str) and delivery.get("output", "").lower().endswith(".pptx"),
                   "live HTML delivery includes a static PPTX fallback output")
