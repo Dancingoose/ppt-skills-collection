@@ -1012,6 +1012,47 @@ class WorkflowStateTests(unittest.TestCase):
         result = self.check(task, "deliver")
         self.assertEqual(result.returncode, 0, result.stdout)
 
+    def test_v3_delivery_requires_zero_preflight_and_structural_findings(self):
+        state = valid_v3_state()
+        state["task"]["deliveryFormat"] = "pptx"
+        state["delivery"].update({
+            "output": "deck.pptx",
+            "audit": {
+                "result": "pass", "reviewedPages": 2, "pptxSha256": "",
+                "artifact": "pptx-audit.json", "unresolvedHighRiskPages": [],
+                "structuralWarnings": 0, "notes": "PowerPoint comparison reviewed.",
+            },
+        })
+        task = self.write_task(state)
+        pptx_path = task / "deck.pptx"
+        pptx_path.write_bytes(b"audited V3 output")
+        digest = hashlib.sha256(pptx_path.read_bytes()).hexdigest()
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["audit"]["pptxSha256"] = digest
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+
+        artifact = {
+            "schemaVersion": 1, "result": "pass", "reviewedPages": 2,
+            "pptxSha256": digest, "renderer": "PowerPoint",
+            "notes": "Compared both rendered slides against HTML references.",
+            "checks": {
+                "preflight": {"status": "pass", "highRiskPages": []},
+                "structuralSelfCheck": {"status": "pass", "warningCount": 0},
+            },
+        }
+        audit_path = task / "pptx-audit.json"
+        audit_path.write_text(json.dumps(artifact), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+        artifact["checks"]["preflight"] = {"status": "failed", "highRiskPages": [1]}
+        artifact["checks"]["structuralSelfCheck"] = {"status": "failed", "warningCount": 1}
+        audit_path.write_text(json.dumps(artifact), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("V3 delivery preflight evidence agrees with unresolved high-risk pages", result.stdout)
+        self.assertIn("V3 delivery structural self-check evidence agrees with warning count", result.stdout)
+
     def test_delivery_rejects_an_unbacked_pptx_audit_manifest(self):
         state = valid_state()
         state["task"]["deliveryFormat"] = "pptx"

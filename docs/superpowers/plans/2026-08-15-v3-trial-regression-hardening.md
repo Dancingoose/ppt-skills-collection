@@ -23,12 +23,12 @@ HTML-first PPTX converter preflight.
 - Modify: `ppt-skills-collection/ppt-workflow/scripts/check_workflow_state.py`
 - Test: `ppt-skills-collection/ppt-workflow/tests/test_check_workflow_state.py`
 
-- [ ] Replace stale V1/V2 intake instructions with the V3 `4+4+4+1` sequence.
-- [ ] Require each V3 candidate to declare `backgroundStrategy`,
+- [x] Replace stale V1/V2 intake instructions with the V3 `4+4+4+1` sequence.
+- [x] Require each V3 candidate to declare `backgroundStrategy`,
   `primaryBackgroundMode`, and `compositionFamily` in its visual contract.
-- [ ] Require candidate composition families to be pairwise distinct and the
+- [x] Require candidate composition families to be pairwise distinct and the
   selected passport to copy all three fields exactly.
-- [ ] Add tests for stale-contract rejection and passport drift rejection.
+- [x] Add tests for stale-contract rejection and passport drift rejection.
 
 ### Task 2: Add composition-family and background execution gates
 
@@ -39,15 +39,15 @@ HTML-first PPTX converter preflight.
 - Modify: `ppt-skills-collection/codex-plugin/skills/ppt-workflow-review/SKILL.md`
 - Test: `ppt-skills-collection/ppt-workflow/tests/test_check_workflow_state.py`
 
-- [ ] Require each V3 execution slide to record and embed
+- [x] Require each V3 execution slide to record and embed
   `compositionFamily`.
-- [ ] Reject three consecutive matching composition families and retain the
+- [x] Reject three consecutive matching composition families and retain the
   existing 20% equal-card-grid limit.
-- [ ] Require `data-color-system` and `data-background-mode` to agree with the
+- [x] Require `data-color-system` and `data-background-mode` to agree with the
   locked passport and color-continuity artifact.
-- [ ] Document that a uniform light passport rejects any dark execution slide;
+- [x] Document that a uniform light passport rejects any dark execution slide;
   rhythmic backgrounds require explicit selected-contract evidence.
-- [ ] Add tests for repeated composition families and background-mode drift.
+- [x] Add tests for repeated composition families and background-mode drift.
 
 ### Task 3: Harden conversion-risk guidance and delivery evidence
 
@@ -56,12 +56,12 @@ HTML-first PPTX converter preflight.
 - Modify: `ppt-skills-collection/codex-plugin/skills/ppt-workflow-delivery/SKILL.md`
 - Modify: `ppt-skills-collection/ppt-workflow/tests/test_check_workflow_state.py`
 
-- [ ] Treat clipped slide roots with transformed children as a blocking
+- [x] Treat clipped slide roots with transformed children as a blocking
   preflight risk instead of a warning.
-- [ ] Add authoring guidance to use non-transformed decorations for PPTX.
-- [ ] Require delivery evidence to report zero unresolved high-risk preflight
+- [x] Add authoring guidance to use non-transformed decorations for PPTX.
+- [x] Require delivery evidence to report zero unresolved high-risk preflight
   pages and zero structural self-check warnings.
-- [ ] Add a regression test for the transformed-decoration preflight case.
+- [x] Add a regression test for the transformed-decoration preflight case.
 
 ### Task 4: Verify and package
 
@@ -69,7 +69,11 @@ HTML-first PPTX converter preflight.
 - Verify: `ppt-skills-collection/ppt-workflow/tests/`
 - Verify: `ppt-skills-collection/html-to-pptx/tests/`
 
-- [ ] Run all workflow-state tests and converter tests.
-- [ ] Run `git diff --check` and inspect that only workflow-package files are
+- [x] Run all workflow-state tests and converter tests.
+- [x] Run `git diff --check` and inspect that only workflow-package files are
   changed.
-- [ ] Commit the package-only changes on the existing `ppt正式版` branch.
+- [x] Commit the package-only changes on the `master` test chain. Keep the
+  existing `ppt正式版` stable package node unchanged until an explicit promotion.
+
+Verification on 2026-08-15: 86 workflow tests passed; 23 converter tests passed
+with the two FFmpeg-dependent integration tests skipped as configured.

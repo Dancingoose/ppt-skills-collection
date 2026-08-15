@@ -875,6 +875,32 @@ def check_delivery(state, task_dir, v):
                   "delivery audit artifact agrees with PPTX hash")
         v.value(artifact, "renderer", "delivery audit artifact names the rendering engine")
         v.value(artifact, "notes", "delivery audit artifact has notes")
+        if intake_schema == 3:
+            high_risk_pages = audit.get("unresolvedHighRiskPages")
+            structural_warnings = audit.get("structuralWarnings")
+            v.require(high_risk_pages == [], "V3 delivery has zero unresolved high-risk preflight pages")
+            v.require(structural_warnings == 0, "V3 delivery has zero structural self-check warnings")
+
+            checks = artifact.get("checks")
+            v.require(isinstance(checks, dict), "V3 delivery audit artifact has converter checks")
+            checks = checks if isinstance(checks, dict) else {}
+            preflight = checks.get("preflight")
+            v.require(isinstance(preflight, dict), "V3 delivery audit artifact has preflight evidence")
+            preflight = preflight if isinstance(preflight, dict) else {}
+            v.require(preflight.get("status") == "pass", "V3 delivery preflight evidence passes")
+            v.require(preflight.get("highRiskPages") == high_risk_pages,
+                      "V3 delivery preflight evidence agrees with unresolved high-risk pages")
+
+            self_check = checks.get("structuralSelfCheck")
+            v.require(isinstance(self_check, dict), "V3 delivery audit artifact has structural self-check evidence")
+            self_check = self_check if isinstance(self_check, dict) else {}
+            v.require(self_check.get("status") == "pass", "V3 delivery structural self-check evidence passes")
+            warning_count = self_check.get("warningCount")
+            if not isinstance(warning_count, int):
+                known_counts = [self_check.get("layoutOverlaps"), self_check.get("fullSlidePictures")]
+                warning_count = sum(known_counts) if all(isinstance(count, int) for count in known_counts) else None
+            v.require(warning_count == structural_warnings,
+                      "V3 delivery structural self-check evidence agrees with warning count")
 
 
 def main():

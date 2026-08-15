@@ -453,6 +453,8 @@
       "reviewedPages": 2,
       "pptxSha256": "[SHA-256 of the audited PPTX]",
       "artifact": "pptx-audit.json",
+      "unresolvedHighRiskPages": [],
+      "structuralWarnings": 0,
       "notes": "Reviewed HTML/PPT comparisons and resolved all findings."
     },
     "liveHtml": {

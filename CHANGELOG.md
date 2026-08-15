@@ -1,5 +1,15 @@
 # Workflow Change Log
 
+## 2026-08-15 - V3 Delivery Evidence Gate
+
+- Completed the V3 regression-hardening contract by requiring file-backed
+  proof of zero unresolved high-risk preflight pages and zero structural
+  self-check warnings before PPTX delivery.
+- Kept V1/V2 delivery records backward compatible; the stricter evidence is
+  required only for V3 tasks.
+- Verification: 86 workflow tests and 23 converter tests pass; the two
+  FFmpeg-dependent media integration tests are skipped when FFmpeg is absent.
+
 ## 2026-08-11 - Explicit Background Strategy
 
 - Replaced the unconditional “no three consecutive slides share a background mode” rule with a locked passport choice: `uniform` or `rhythmic`, plus `primaryBackgroundMode`.
