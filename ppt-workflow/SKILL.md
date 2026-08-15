@@ -9,6 +9,8 @@ description: "PPT 制作完整分层流程。当用户要求做 PPT、slide、de
 
 第 13 项是样张确认：制作者查看 `visual-direction-preview.html` 后选定一个方案，或选择“都不符合”。后者必须记录修改意见、重新生成三张样张，并保持问卷未完成；未确认方案时不得进入正式设计。选中方案必须写入 `decision.designProfile`，并把同一视觉契约锁入 `decision.passport.designProfile`。
 
+V3 还必须生成 `decision.intentBindings`：将问卷答案明确绑定到内容、构图和交付，并记录内容必须包含/避免、视觉必须避免、交付必须支持的边界。没有这些可执行约束，决策层不能通过。
+
 执行层的每页必须登记并在 HTML `.slide` 上标记页面原型：`hero`、`context`、`evidence`、`data`、`comparison`、`process`、`transition`、`recommendation` 或 `action`。十页及以上的文稿必须包含开场、数据或证据、转场和行动页，且不得连续三页同原型。完成后输出 `deck-rhythm-review.json` 与 `design-profile-review.json`，检查整套节奏以及字体、留白、图片处理、图表语言、构图是否持续遵守所选方案。
 
 # V3 构图族门禁

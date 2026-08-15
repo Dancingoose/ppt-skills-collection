@@ -408,6 +408,57 @@ def check_design_profile(decision, task_dir, v):
     return status == "confirmed"
 
 
+def check_v3_intent_bindings(decision, v):
+    """Require V3 answers to become explicit content, composition, and delivery constraints."""
+    bindings = decision.get("intentBindings", {})
+    v.require(isinstance(bindings, dict), "V3 intent bindings are recorded")
+    bindings = bindings if isinstance(bindings, dict) else {}
+    v.require(bindings.get("creatorConfirmed") is True,
+              "V3 intent bindings are creator-confirmed")
+    v.value(bindings, "evidence", "V3 intent bindings record creator evidence")
+
+    responses = decision.get("intentQuestionnaire", {}).get("responses", [])
+    responses = responses if isinstance(responses, list) else []
+    answers = {
+        item.get("id"): item.get("answer", "").strip()
+        for item in responses if isinstance(item, dict) and isinstance(item.get("answer"), str)
+    }
+    design_boldness = next((item.get("level") for item in responses
+                            if isinstance(item, dict) and item.get("id") == "designBoldness"), None)
+
+    content = bindings.get("content", {})
+    v.require(isinstance(content, dict), "V3 content intent bindings are recorded")
+    content = content if isinstance(content, dict) else {}
+    for key, question_id in (("storyline", "storyline"), ("focus", "contentFocus"), ("density", "informationDensity")):
+        v.require(content.get(key) == answers.get(question_id),
+                  f"V3 content binding {key} exactly matches the creator answer")
+    for key, label in (("mustInclude", "content must-include boundaries"), ("mustAvoid", "content must-avoid boundaries")):
+        value = content.get(key)
+        v.require(isinstance(value, list) and bool(value) and all(isinstance(item, str) and item.strip() for item in value), label)
+
+    composition = bindings.get("composition", {})
+    v.require(isinstance(composition, dict), "V3 composition intent bindings are recorded")
+    composition = composition if isinstance(composition, dict) else {}
+    v.require(composition.get("boldnessLevel") == design_boldness,
+              "V3 composition boldness binding exactly matches the creator answer")
+    v.value(composition, "densityRule", "V3 composition binding records an information-density rule")
+    visual_avoid = composition.get("visualMustAvoid")
+    v.require(isinstance(visual_avoid, list) and bool(visual_avoid)
+              and all(isinstance(item, str) and item.strip() for item in visual_avoid),
+              "visual composition must-avoid boundaries")
+
+    delivery = bindings.get("delivery", {})
+    v.require(isinstance(delivery, dict), "V3 delivery intent bindings are recorded")
+    delivery = delivery if isinstance(delivery, dict) else {}
+    for key, question_id in (("expectedOutcome", "expectedOutcome"), ("useScene", "useScene"), ("deliveryUse", "deliveryUse")):
+        v.require(delivery.get(key) == answers.get(question_id),
+                  f"V3 delivery binding {key} exactly matches the creator answer")
+    delivery_constraints = delivery.get("mustSupport")
+    v.require(isinstance(delivery_constraints, list) and bool(delivery_constraints)
+              and all(isinstance(item, str) and item.strip() for item in delivery_constraints),
+              "delivery must-support boundaries")
+
+
 def check_decision(state, task_dir, v):
     check_intent(state, task_dir, v)
     decision = state.get("decision", {})
@@ -425,6 +476,7 @@ def check_decision(state, task_dir, v):
     design_profile_confirmed = True
     if isinstance(intake, dict) and intake.get("schemaVersion") == 3:
         design_profile_confirmed = check_design_profile(decision, task_dir, v)
+        check_v3_intent_bindings(decision, v)
         v.require(design_profile_confirmed, "design profile is confirmed before formal decision")
     if isinstance(intake, dict) and intake.get("schemaVersion") == 2:
         boldness = phase2.get("designBoldness", {})

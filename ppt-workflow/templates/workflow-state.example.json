@@ -275,6 +275,28 @@
       "creatorConfirmation": "创作者选择“观点叙事”样张。",
       "evidence": "第 13 项视觉样张确认记录。"
     },
+    "intentBindings": {
+      "creatorConfirmed": true,
+      "evidence": "创作者在第 3 批确认了内容、构图和交付边界。",
+      "content": {
+        "storyline": "问题、证据、行动",
+        "focus": "市场数据与增长机会",
+        "density": "高密度",
+        "mustInclude": ["市场数据来源", "增长机会结论"],
+        "mustAvoid": ["无来源的精确预测"]
+      },
+      "composition": {
+        "boldnessLevel": 4,
+        "densityRule": "高密度页使用分层信息和可扫读数据版式。",
+        "visualMustAvoid": ["连续使用等宽卡片网格", "低对比小字"]
+      },
+      "delivery": {
+        "expectedOutcome": "获得投资方向共识",
+        "useScene": "会议室投影",
+        "deliveryUse": "现场演讲",
+        "mustSupport": ["远距离可读", "演讲者可用页面作为讲述提纲"]
+      }
+    },
     "phase2": {
       "pageCount": 8,
       "theme": "观点叙事",

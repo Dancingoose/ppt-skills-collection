@@ -207,6 +207,28 @@ def valid_v3_state():
         for batch in (1, 2, 3, 4)
     ]
     state["decision"]["designProfile"] = valid_design_profile()
+    state["decision"]["intentBindings"] = {
+        "creatorConfirmed": True,
+        "evidence": "Creator confirmed the content, composition, and delivery boundaries.",
+        "content": {
+            "storyline": "Creator answer for storyline",
+            "focus": "Creator answer for contentFocus",
+            "density": "Creator answer for informationDensity",
+            "mustInclude": ["cited evidence", "decision implication"],
+            "mustAvoid": ["unsupported exact forecasts"],
+        },
+        "composition": {
+            "boldnessLevel": 4,
+            "densityRule": "Use layered evidence blocks with readable hierarchy.",
+            "visualMustAvoid": ["repeated equal card grids", "low contrast small text"],
+        },
+        "delivery": {
+            "expectedOutcome": "Creator answer for expectedOutcome",
+            "useScene": "Creator answer for useScene",
+            "deliveryUse": "Creator answer for deliveryUse",
+            "mustSupport": ["readable at distance", "usable as a speaking outline"],
+        },
+    }
     state["decision"]["passport"]["backgroundStrategy"] = "uniform"
     state["decision"]["passport"]["primaryBackgroundMode"] = "light"
     selected = state["decision"]["designProfile"]["candidates"][1]
@@ -380,6 +402,27 @@ class WorkflowStateTests(unittest.TestCase):
     def test_v3_decision_accepts_a_confirmed_dynamic_visual_profile(self):
         result = self.check(self.write_task(valid_v3_state()), "decision")
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_v3_decision_requires_explicit_intent_bindings(self):
+        state = valid_v3_state()
+        del state["decision"]["intentBindings"]
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("V3 intent bindings are recorded", result.stdout)
+
+    def test_v3_decision_rejects_intent_binding_drift(self):
+        state = valid_v3_state()
+        state["decision"]["intentBindings"]["delivery"]["useScene"] = "self-read document"
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("V3 delivery binding useScene exactly matches the creator answer", result.stdout)
+
+    def test_v3_decision_rejects_empty_intent_boundaries(self):
+        state = valid_v3_state()
+        state["decision"]["intentBindings"]["content"]["mustAvoid"] = []
+        result = self.check(self.write_task(state), "decision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("content must-avoid boundaries", result.stdout)
 
     def test_v3_execution_requires_page_archetypes_and_file_backed_reviews(self):
         state = valid_v3_state()

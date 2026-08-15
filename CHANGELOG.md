@@ -1,5 +1,14 @@
 # Workflow Change Log
 
+## 2026-08-15 - Precision Intent Bindings
+
+- Added V3 `decision.intentBindings` so creator answers explicitly constrain
+  content, composition, and delivery instead of remaining as free-form notes.
+- Added required must-include, must-avoid, visual-avoid, and delivery-support
+  boundaries, with fail-closed checks for answer drift and malformed intake data.
+- Updated the intake skill, material-driven questioning reference, quick card,
+  and workflow template with executable boundary examples.
+
 ## 2026-08-15 - V3 Delivery Evidence Gate
 
 - Completed the V3 regression-hardening contract by requiring file-backed

@@ -8,6 +8,7 @@
 - 第 13 项为样张确认；“都不符合”必须写修改意见并重生样张，未确认即停止。
 - 已选方案的视觉契约锁入护照；每页声明 `archetype` 并在 HTML 写 `data-archetype`。
 - 输出 `deck-rhythm-review.json` 和 `design-profile-review.json`；禁止连续三页同原型，十页以上必须有开场、证据/数据、转场和行动页。
+- 记录 `decision.intentBindings`：内容 `mustInclude/mustAvoid`、构图 `visualMustAvoid`、交付 `mustSupport` 均不能为空，并检查故事线、信息密度、期望结果、场景和用途与问卷答案逐项一致。
 
 ## 旧版 Phase 1 材料驱动提问（仅用于历史兼容）
 > 有 content-inventory.md 时，选项由 agent 读材料现场生成（每个选项须能在材料找到出处）；无材料回退通用骨架。
