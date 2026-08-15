@@ -1154,6 +1154,62 @@ class WorkflowStateTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("delivery audit artifact is recorded", result.stdout)
 
+    def test_native_motion_delivery_requires_playback_and_text_build_evidence(self):
+        state = valid_state()
+        state["task"]["deliveryFormat"] = "pptx"
+        state["execution"]["slides"][1]["visualEffect"] = {
+            "status": "applied", "type": "native-motion", "reason": "Reveal the point on click.",
+        }
+        state["delivery"].update({
+            "output": "deck.pptx",
+            "audit": {
+                "result": "pass", "reviewedPages": 2, "pptxSha256": "",
+                "artifact": "pptx-audit.json", "notes": "PowerPoint comparison reviewed.",
+            },
+        })
+        task = self.write_task(state)
+        pptx_path = task / "deck.pptx"
+        pptx_path.write_bytes(b"native motion output")
+        digest = hashlib.sha256(pptx_path.read_bytes()).hexdigest()
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["audit"]["pptxSha256"] = digest
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        (task / "pptx-audit.json").write_text(json.dumps({
+            "schemaVersion": 1, "result": "pass", "reviewedPages": 2, "pptxSha256": digest,
+            "renderer": "PowerPoint", "notes": "Compared both rendered slides against HTML references.",
+        }), encoding="utf-8")
+
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("native motion audit is recorded", result.stdout)
+
+        motion_artifact = {
+            "schemaVersion": 1, "kind": "native-motion-audit", "result": "pass", "pptxSha256": digest,
+            "slides": [
+                {"index": 1, "backgroundTargetCount": 0, "textBackgroundOnlyBuilds": 0},
+                {"index": 2, "backgroundTargetCount": 0, "textBackgroundOnlyBuilds": 0},
+            ],
+            "powerPointCom": {"status": "unavailable", "reason": "Test environment", "slides": []},
+            "slideshowPlayback": {"observed": True, "observer": "creator", "evidence": "Observed in Slide Show view."},
+        }
+        persisted = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
+        persisted["delivery"]["motionAudit"] = {
+            "result": "pass", "reviewedSlides": [2], "pptxSha256": digest,
+            "artifact": "motion-audit.json", "slideshowObserved": True,
+            "evidence": "Observed in Slide Show view.", "notes": "COM is unavailable in this test environment.",
+        }
+        (task / "workflow-state.json").write_text(json.dumps(persisted), encoding="utf-8")
+        motion_path = task / "motion-audit.json"
+        motion_path.write_text(json.dumps(motion_artifact), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+        motion_artifact["slides"][1]["textBackgroundOnlyBuilds"] = 1
+        motion_path.write_text(json.dumps(motion_artifact), encoding="utf-8")
+        result = self.check(task, "deliver")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("does not animate only a text box background", result.stdout)
+
     def test_live_html_delivery_requires_playback_proof_and_current_file_hash(self):
         state = valid_state()
         intake = state["decision"]["intentQuestionnaire"]

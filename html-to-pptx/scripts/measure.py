@@ -83,8 +83,19 @@ EXTRACT_JS = r"""
 
   const records = [];
   let nodeId = 0;
-  const motionIdFor = (el) => el && el.getAttribute
-    ? (el.getAttribute('data-pptx-motion-id') || '') : '';
+  // A motion marker on a semantic container owns the complete visual group.
+  // Leaf records inherit it so the converter can animate all editable parts
+  // together instead of animating only whichever child happens to be mapped.
+  const motionIdFor = (el) => {
+    let node = el;
+    while (node && node.nodeType === 1) {
+      const id = node.getAttribute('data-pptx-motion-id') || '';
+      if (id) return id;
+      if (node === slide) break;
+      node = node.parentElement;
+    }
+    return '';
+  };
 
   // 标记一个节点是否为 "text leaf"：包含 textContent 但所有子节点要么是文本节点，要么是 inline 装饰（em/span 等没有进一步分割结构的）
   // 简化：只要这个元素的 children 中没有任何 block 级元素，就算 text leaf。

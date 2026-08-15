@@ -597,6 +597,11 @@ def add_shape_box(slide, rec):
         elif side == "right":
             _add_line(slide, x + w, y, x + w, y + h, rgb, bw, alpha)
 
+    # A filled card with one-sided borders still has a real background shape.
+    # Return it so a semantic motion marker animates the card surface together
+    # with its text, instead of binding only the text records.
+    return fill_shape
+
 
 def _round_kind(border_radius: str, w_px: float, h_px: float) -> str:
     """border-radius + 元素宽高 → 'oval' | 'pill' | 'rect'。
@@ -1244,8 +1249,8 @@ def assemble_slide(slide, data):
 
     def register_motion_target(rec, shape):
         motion_id = rec.get("motionId")
-        if motion_id and shape is not None and motion_id not in motion_targets:
-            motion_targets[motion_id] = shape
+        if motion_id and shape is not None:
+            motion_targets.setdefault(motion_id, []).append(shape)
 
     for rec in data["records"]:
         if rec["kind"] == "shape":

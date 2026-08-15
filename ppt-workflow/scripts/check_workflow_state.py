@@ -1021,6 +1021,60 @@ def check_delivery(state, task_dir, v):
             v.require(warning_count == structural_warnings,
                       "V3 delivery structural self-check evidence agrees with warning count")
 
+        native_motion_slides = [
+            slide.get("id") for slide in expected_pages
+            if isinstance(slide, dict)
+            and isinstance(slide.get("visualEffect"), dict)
+            and slide["visualEffect"].get("status") == "applied"
+            and slide["visualEffect"].get("type") == "native-motion"
+        ]
+        if native_motion_slides:
+            motion_audit = delivery.get("motionAudit", {})
+            v.require(isinstance(motion_audit, dict), "native motion audit is recorded")
+            motion_audit = motion_audit if isinstance(motion_audit, dict) else {}
+            v.require(motion_audit.get("result") == "pass", "native motion audit passes")
+            reviewed = motion_audit.get("reviewedSlides")
+            v.require(isinstance(reviewed, list) and set(native_motion_slides).issubset(set(reviewed)),
+                      "native motion audit reviewed every animated slide")
+            motion_hash = v.value(motion_audit, "pptxSha256", "native motion audit records the audited PPTX hash")
+            v.require(normalized_sha256(motion_hash) == actual_pptx_hash,
+                      "PPTX has not changed since native motion audit")
+            motion_name = v.value(motion_audit, "artifact", "native motion audit artifact is recorded")
+            motion_artifact = load_json_artifact(task_dir, motion_name, "native motion audit", v)
+            v.require(motion_artifact.get("schemaVersion") == 1,
+                      "native motion audit artifact has schema version")
+            v.require(motion_artifact.get("kind") == "native-motion-audit",
+                      "native motion audit artifact has native-motion kind")
+            v.require(motion_artifact.get("result") == "pass",
+                      "native motion audit artifact passes")
+            v.require(normalized_sha256(motion_artifact.get("pptxSha256")) == actual_pptx_hash,
+                      "native motion audit artifact agrees with PPTX hash")
+            audited_slides = {
+                slide.get("index"): slide for slide in motion_artifact.get("slides", [])
+                if isinstance(slide, dict) and isinstance(slide.get("index"), int)
+            }
+            for slide_id in native_motion_slides:
+                slide_audit = audited_slides.get(slide_id, {})
+                v.require(isinstance(slide_audit, dict),
+                          f"native motion audit includes slide {slide_id}")
+                v.require(slide_audit.get("textBackgroundOnlyBuilds") == 0,
+                          f"native motion slide {slide_id} does not animate only a text box background")
+                v.require(slide_audit.get("backgroundTargetCount") == 0,
+                          f"native motion slide {slide_id} does not use unsupported background targets")
+            com = motion_artifact.get("powerPointCom", {})
+            v.require(isinstance(com, dict) and com.get("status") in {"pass", "unavailable"},
+                      "native motion audit has PowerPoint COM recognition evidence")
+            if isinstance(com, dict) and com.get("status") == "unavailable":
+                v.value(motion_audit, "notes", "native motion audit explains unavailable PowerPoint COM")
+            v.require(motion_audit.get("slideshowObserved") is True,
+                      "native motion slideshow playback was observed")
+            v.value(motion_audit, "evidence", "native motion slideshow observation has evidence")
+            playback = motion_artifact.get("slideshowPlayback", {})
+            v.require(isinstance(playback, dict) and playback.get("observed") is True,
+                      "native motion audit artifact records slideshow observation")
+            if isinstance(playback, dict):
+                v.value(playback, "evidence", "native motion artifact has slideshow observation evidence")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Validate structured PPT workflow evidence")

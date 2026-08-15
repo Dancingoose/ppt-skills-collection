@@ -54,7 +54,7 @@ skill 内部把所有 CSS 翻译成四档输出：
 ## 流水线
 
 ```
-[1 预扫] → [2 测量] → [3 组装] → [4 字体嵌入] → [5a 自检] → [5b 视觉 audit]
+[1 预扫] → [2 测量] → [3 组装] → [4 字体嵌入] → [4.5 原生动效审计] → [5a 自检] → [5b 视觉 audit]
 ```
 
 ## 修复纪律
@@ -87,3 +87,11 @@ Canvas, shader, or arbitrary JavaScript animation that must play inside the
 PPTX, use `data-pptx-video` on the slide and convert with
 `--embed-video-motion`; it embeds an offline MP4 rather than launching a
 browser companion.
+
+When a deck contains native motion, conversion writes
+`<output>_audit/motion-audit.json`. It checks the emitted OOXML and, when
+available, asks PowerPoint COM whether it recognizes each timeline. This is
+not playback proof: static comparison images and the Animation Pane cannot
+show whether a click sequence actually reveals the intended content. Before
+delivery, record a human observation from Slide Show view in the task's
+`delivery.motionAudit` evidence.

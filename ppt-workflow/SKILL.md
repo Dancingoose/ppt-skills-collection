@@ -306,6 +306,8 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 **审查绑定：** 源页逐张目检完成后，对最终的 `execution.html` 计算 SHA-256 并写入 `execution.sourceVisualReview.htmlSha256`。再按深浅色系统检查感知底色、视觉温度和主导色块，排除“CSS 底色相同但暖/冷大色块使页面看起来换了背景”的假漂移；将同一哈希写入 `execution.colorContinuityReview.htmlSha256`。交付 PPTX 对比审计完成后，对该 PPTX 计算 SHA-256 并写入 `delivery.audit.pptxSha256`。任一文件在审查后被改动，门禁必须重新失败，直到重新审查并更新对应哈希。
 
+**原生动效的额外交付证据：** `visualEffect.type: "native-motion"` 不是“动画窗格里有一项”即可通过。为每个动画页先按演讲语义定义一个整体（卡片背景、插图和文字一起，或明确将静态图片排除在组外），再运行转换器生成的 `motion-audit.json`。将它登记为 `delivery.motionAudit`，其中 `reviewedSlides` 覆盖全部动效页、`pptxSha256` 对应当前输出、`slideshowObserved: true`，并写入实际 PowerPoint 幻灯片放映观察的证据。OOXML/COM 只能检查结构和识别结果；静态截图、动画窗格、COM 均不能代替真实放映观察。
+
 | 页面内容信号 | 自动注入 | 库 |
 |-------------|---------|-----|
 | 深色封面/过渡/CTA 页 | 动态着色器背景（ocean/aurora/particle） | Shadertoy |
@@ -409,6 +411,7 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 [ ] check_workflow_state.py --layer deliver 已运行且全部 PASS
 [ ] convert.py 存在
 [ ] 已审阅 HTML/PPT 对比图并把 result、reviewedPages、notes 写入 delivery.audit
+[ ] 如含 native-motion：motion-audit.json 已覆盖每个动效页，且已记录真实放映观察和 PPTX 哈希
 [ ] .config.local.toml 已配置（无则弹首次配置）
 [ ] 用户已确认交付形态（HTML / PPTX / 纯PPTX）
 [ ] Canvas/WebGL 增强已告知会降级为静态截图
