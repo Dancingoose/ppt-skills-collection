@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT HTML Authoring"
+  short_description: "Author source-backed, layout-validated PPT HTML."
+  default_prompt: "Use $ppt-workflow-authoring to build the source HTML for this deck."

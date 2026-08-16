@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Effects Scan"
+  short_description: "Scan every slide for appropriate visual effects."
+  default_prompt: "Use $ppt-workflow-effects to scan each slide and record effect decisions."

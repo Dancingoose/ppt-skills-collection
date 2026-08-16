@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Design Review"
+  short_description: "Review PPT intent, evidence, and layout choices."
+  default_prompt: "Use $ppt-workflow-review to review this deck before preview approval."
