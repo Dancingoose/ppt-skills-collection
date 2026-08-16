@@ -1,0 +1,4 @@
+interface:
+  display_name: "MBB Deck Storyline"
+  short_description: "Shape evidence-led PPT storylines."
+  default_prompt: "Use $mbb-decks to create the storyline for each PPT design direction."

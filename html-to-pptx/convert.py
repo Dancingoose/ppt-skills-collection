@@ -180,6 +180,13 @@ def convert(html_path: Path, out_path: Path, keep_screenshots: bool, embed_fonts
             # 1) measure（结果通过 dict 在内存里传递；anchor 仅用于 svg / 截图资源定位）
             # only_indices 取回退后的值：measure 回退全量时 Stage 5a/5b 也必须全量，
             # 否则渲染 / compare 图会复用上轮（旧 pptx / 错位页号）的缓存
+            blocking_risks = (preflight_result or {}).get("summary", {}).get("blocking_risks", [])
+            if blocking_risks:
+                raise RuntimeError(
+                    "Preflight blocked conversion because PPTX-unsafe transformed decorations were found: "
+                    + repr(blocking_risks)
+                )
+
             meas, only_indices = _run_measure_with_incremental(
                 html_path, anchor_json, only_indices,
                 measure_needs_screenshots, measure, page=deck_page)
@@ -249,6 +256,21 @@ def convert(html_path: Path, out_path: Path, keep_screenshots: bool, embed_fonts
             t0 = time.perf_counter()
             embedded = embed_slide_videos(out_path, slide_videos)
             print(f"[video]    embedded on slides {embedded} in {time.perf_counter()-t0:.2f}s")
+
+        # 3.5) Native-motion audit. This is intentionally separate from the
+        # visual audit: a static render cannot prove a click timeline works.
+        if any(slide.get("motions") for slide in meas.get("slides", [])):
+            from motion_audit import audit_motion
+            motion_audit_path = audit_dir / "motion-audit.json"
+            try:
+                motion_audit_path.parent.mkdir(parents=True, exist_ok=True)
+                motion_audit = audit_motion(out_path)
+                motion_audit_path.write_text(
+                    json.dumps(motion_audit, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                print(f"[motion-audit] {motion_audit['result']} -> {motion_audit_path}")
+            except Exception as e:
+                print(f"[motion-audit] 异常（保留 PPTX，交付前必须人工处理）: {e}")
 
         # 4) 自检（默认开启）— 自检异常不影响 pptx 产出
         self_check_result = None

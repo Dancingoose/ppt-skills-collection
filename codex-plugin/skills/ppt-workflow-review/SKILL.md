@@ -5,11 +5,23 @@ description: Review an evidence-led PPT design before preview approval. Use for 
 
 # PPT Workflow Review
 
+## V3 整套审查
+
+审查不只看单页。输出 `deck-rhythm-review.json`，记录全部页面原型序列，拒绝连续三页相同原型；十页以上必须有 hero、data/evidence、transition、action。输出 `design-profile-review.json`，覆盖每一页和当前 HTML 哈希，审查 typography、spacing、imageTreatment、chartLanguage、composition 与已确认视觉方案的一致性，并记录例外和说明。
+
+V3 还必须输出 `intent-continuity-review.json`，把已确认问卷、批准的 `preview.html`、最终 `design.html` 和交付审查连接起来。它必须记录四者的文件哈希、页面 ID、选定方案、意图绑定哈希和三项链路检查：`intentToPreview`、`previewToExecution`、`executionToDelivery`。任何一个环节修改后都要重新审查，不能只更新状态文件。
+
 Use the collection root named by `PPT_WORKFLOW_ROOT`; when it is unset, derive it from this installed package. Work inside the task directory containing `workflow-state.json` and `content-inventory.md`.
 
-1. Confirm `check_workflow_state.py --layer intent` passes before review. Read the inventory, the creator-confirmed `decision.intentQuestionnaire`, Phase 1/2 decision fields, locked or proposed passport, and the relevant portions of `references/quick-reference-card.md`, `references/layout-library.md`, and `references/theme-tokens.md`.
+1. Confirm the pre-design intent gate passes before reviewing directions, and the decision gate passes before reviewing authored HTML. Read the inventory, the creator-confirmed `decision.intentQuestionnaire`, every `decision.designRecipes` entry, `design-orchestration.json`, Phase 1/2 decision fields, locked or proposed passport, and the relevant portions of `references/quick-reference-card.md`, `references/layout-library.md`, and `references/theme-tokens.md`.
 2. Review five areas: `intent`, `evidence`, `theme`, `typography`, and `layouts`. Verify every material claim has a source, the proposed canvas serves the audience, the theme does not contradict the source or requested tone, typography is legible and not a default fallback, and each proposed layout fits its information shape. For decks of 10+ pages, inspect visual archetypes as well as layout IDs: equal-card grid layouts (`B4`, `B16`, `B19`, `C8`) may occupy no more than 20% of pages and must be separated by at least three non-grid pages. Recast repeated parallel-fact pages as a comparison, process, hierarchy, matrix, timeline, or editorial argument. Lock `passport.backgroundStrategy` as `uniform` or `rhythmic` and record its `primaryBackgroundMode`; do not leave background variation to implementation taste.
 3. Identify concrete defects and correct the passport or page plan before preview. Do not merely name a generic design skill as proof of review.
+
+For V3, also verify that the three visual samples use three different
+composition families (for example grid, asymmetric editorial, and sequence),
+not merely different colors or labels. Record the selected background strategy
+and primary mode in the design-profile review. A uniform light profile must not
+contain dark execution pages.
 4. Write `<task>/anti-template-review.json` before the preview decision gate:
 
 ```json

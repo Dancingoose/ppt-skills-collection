@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI UX Research for PPT"
+  short_description: "Translate UI UX research into PPT constraints."
+  default_prompt: "Use $ui-ux-pro-max to research and constrain PPT design recipes."

@@ -169,21 +169,23 @@ def _condition_list(tag: str, delay: int | str):
     return conditions
 
 
-def _target(shape_id: int):
+def _target(shape_id: int, text_target: bool = False):
     target = _el("tgtEl")
-    sp_target = _el("spTgt", spid=shape_id)
-    sp_target.append(_el("bg"))
-    target.append(sp_target)
+    # This is the structure PowerPoint emits for both a shape entrance and a
+    # text-box entrance. The bldP animBg flag below decides whether a build is
+    # background-only; forcing txEl here makes the whole timing tree unreliable
+    # in slideshow mode on desktop PowerPoint.
+    target.append(_el("spTgt", spid=shape_id))
     return target
 
 
-def _visibility_set(ids, shape_id: int):
+def _visibility_set(ids, shape_id: int, text_target: bool = False):
     effect = _el("set")
     behavior = _el("cBhvr")
     ctn = _el("cTn", id=next(ids), dur=1, fill="hold")
     ctn.append(_condition_list("stCondLst", 0))
     behavior.append(ctn)
-    behavior.append(_target(shape_id))
+    behavior.append(_target(shape_id, text_target))
     attrs = _el("attrNameLst")
     name = _el("attrName")
     name.text = "style.visibility"
@@ -196,14 +198,14 @@ def _visibility_set(ids, shape_id: int):
     return effect
 
 
-def _entrance_effect(ids, shape_id: int, motion: dict[str, Any]):
+def _entrance_effect(ids, shape_id: int, motion: dict[str, Any], text_target: bool = False):
     """Emit a PowerPoint entrance effect using documented PresentationML."""
     kind = motion["kind"]
     if kind == "spin":
         effect = _el("animRot", by=21600000)
         behavior = _el("cBhvr")
         behavior.append(_el("cTn", id=next(ids), dur=motion["duration"], fill="hold", nodeType="withEffect"))
-        behavior.append(_target(shape_id))
+        behavior.append(_target(shape_id, text_target))
         names = _el("attrNameLst")
         name = _el("attrName")
         name.text = "r"
@@ -223,7 +225,7 @@ def _entrance_effect(ids, shape_id: int, motion: dict[str, Any]):
     effect = _el("animEffect", transition="in", filter=filters[kind])
     behavior = _el("cBhvr")
     behavior.append(_el("cTn", id=next(ids), dur=motion["duration"]))
-    behavior.append(_target(shape_id))
+    behavior.append(_target(shape_id, text_target))
     effect.append(behavior)
     return effect, "entr", "10" if kind == "fade" else "0"
 
@@ -256,12 +258,12 @@ def _point(value: Any, fallback: tuple[float, float]) -> tuple[float, float]:
     return fallback
 
 
-def _motion_effect(ids, shape_id: int, action: dict[str, Any]):
+def _motion_effect(ids, shape_id: int, action: dict[str, Any], text_target: bool = False):
     path = str(action.get("path", "M 0 0 L 0 0 E"))
     effect = _el("animMotion", origin="layout", path=path, pathEditMode="relative")
     behavior = _el("cBhvr", **{"from": "", "to": ""})
     behavior.append(_el("cTn", id=next(ids), dur=_duration(action.get("duration")), fill="hold"))
-    behavior.append(_target(shape_id))
+    behavior.append(_target(shape_id, text_target))
     attrs = _el("attrNameLst")
     for attr in ("ppt_x", "ppt_y"):
         name = _el("attrName")
@@ -272,14 +274,14 @@ def _motion_effect(ids, shape_id: int, action: dict[str, Any]):
     return effect
 
 
-def _scale_effect(ids, shape_id: int, action: dict[str, Any]):
+def _scale_effect(ids, shape_id: int, action: dict[str, Any], text_target: bool = False):
     from_x, from_y = _point(action.get("from"), (100.0, 100.0))
     to_x, to_y = _point(action.get("to"), (100.0, 100.0))
     # PresentationML uses 1/1000 percent: 80% is 800, not 80000.
     effect = _el("animScale")
     behavior = _el("cBhvr")
     behavior.append(_el("cTn", id=next(ids), dur=_duration(action.get("duration")), fill="hold"))
-    behavior.append(_target(shape_id))
+    behavior.append(_target(shape_id, text_target))
     effect.append(behavior)
     start = _el("from", x=round(from_x * 10), y=round(from_y * 10))
     end = _el("to", x=round(to_x * 10), y=round(to_y * 10))
@@ -287,7 +289,7 @@ def _scale_effect(ids, shape_id: int, action: dict[str, Any]):
     return effect
 
 
-def _rotation_effect(ids, shape_id: int, action: dict[str, Any]):
+def _rotation_effect(ids, shape_id: int, action: dict[str, Any], text_target: bool = False):
     attrs = {}
     if "from" in action:
         attrs["from"] = round(_number(action.get("from"), 0.0) * 60000)
@@ -298,7 +300,7 @@ def _rotation_effect(ids, shape_id: int, action: dict[str, Any]):
     effect = _el("animRot", **attrs)
     behavior = _el("cBhvr")
     behavior.append(_el("cTn", id=next(ids), dur=_duration(action.get("duration")), fill="hold"))
-    behavior.append(_target(shape_id))
+    behavior.append(_target(shape_id, text_target))
     names = _el("attrNameLst")
     name = _el("attrName")
     name.text = "r"
@@ -308,24 +310,24 @@ def _rotation_effect(ids, shape_id: int, action: dict[str, Any]):
     return effect
 
 
-def _action_effect(ids, shape_id: int, action: dict[str, Any]):
+def _action_effect(ids, shape_id: int, action: dict[str, Any], text_target: bool = False):
     kind = str(action.get("effect", action.get("kind", ""))).lower()
     if kind == "motion":
-        return _motion_effect(ids, shape_id, action), "entr", "0", False
+        return _motion_effect(ids, shape_id, action, text_target), "entr", "0", False
     if kind == "scale":
-        return _scale_effect(ids, shape_id, action), "entr", "0", False
+        return _scale_effect(ids, shape_id, action, text_target), "entr", "0", False
     if kind in {"rotate", "spin"}:
         # A supplied `by` is the familiar spin shorthand; from/to gives a
         # reversible transform that returns to the static final HTML state.
-        return _rotation_effect(ids, shape_id, action), "emph", "8", False
+        return _rotation_effect(ids, shape_id, action, text_target), "emph", "8", False
     child, preset_class, preset_id = _entrance_effect(ids, shape_id, {
         **action, "kind": kind, "duration": _duration(action.get("duration")),
-    })
+    }, text_target)
     return child, preset_class, preset_id, True
 
 
-def _effect_par(ids, shape_id: int, action: dict[str, Any]):
-    child, preset_class, preset_id, entrance = _action_effect(ids, shape_id, action)
+def _effect_par(ids, shape_id: int, action: dict[str, Any], text_target: bool = False):
+    child, preset_class, preset_id, entrance = _action_effect(ids, shape_id, action, text_target)
     trigger = str(action.get("trigger", "click")).lower()
     node_type = {"with": "withEffect", "after": "afterEffect"}.get(trigger, "clickEffect")
     par = _el("par")
@@ -338,7 +340,7 @@ def _effect_par(ids, shape_id: int, action: dict[str, Any]):
     ctn.append(_condition_list("stCondLst", _delay(action.get("delay"), 0)))
     children = _el("childTnLst")
     if entrance:
-        children.append(_visibility_set(ids, shape_id))
+        children.append(_visibility_set(ids, shape_id, text_target))
     children.append(child)
     ctn.append(children)
     par.append(ctn)
@@ -370,7 +372,7 @@ def _normalize_plan(motion: dict[str, Any]) -> list[dict[str, Any]]:
     return normalized
 
 
-def _timing_tree(bound: list[tuple[dict[str, Any], int]]):
+def _timing_tree(bound: list[tuple[dict[str, Any], list[Any]]]):
     """Build the minimum main-sequence hierarchy emitted by PowerPoint."""
     ids = iter(range(1, 1000000))
     timing = _el("timing")
@@ -389,21 +391,6 @@ def _timing_tree(bound: list[tuple[dict[str, Any], int]]):
     main_children = _el("childTnLst")
     main.append(main_children)
 
-    click_par = _el("par")
-    main_children.append(click_par)
-    click = _el("cTn", id=next(ids), fill="hold")
-    click.append(_condition_list("stCondLst", "indefinite"))
-    click_par.append(click)
-    click_children = _el("childTnLst")
-    click.append(click_children)
-    group_par = _el("par")
-    click_children.append(group_par)
-    group = _el("cTn", id=next(ids), fill="hold")
-    group.append(_condition_list("stCondLst", 0))
-    group_par.append(group)
-    group_children = _el("childTnLst")
-    group.append(group_children)
-
     previous = _el("prevCondLst")
     prev_cond = _el("cond", evt="onPrev", delay=0)
     prev_target = _el("tgtEl")
@@ -421,11 +408,50 @@ def _timing_tree(bound: list[tuple[dict[str, Any], int]]):
 
     build_list = _el("bldLst")
     timing.append(build_list)
-    for motion, shape_id in bound:
-        for action in _normalize_plan(motion):
-            group_children.append(_effect_par(ids, shape_id, action))
-        build_list.append(_el("bldP", spid=shape_id, grpId=0,
-                              build="allAtOnce", animBg=1))
+    for motion, shapes in bound:
+        # PowerPoint requires every click group to be a separate top-level
+        # child of mainSeq. Nesting multiple clickEffect nodes under one
+        # indefinite container makes the animation pane show entries that do
+        # not advance reliably in slideshow mode.
+        click_par = _el("par")
+        main_children.append(click_par)
+        click = _el("cTn", id=next(ids), fill="hold")
+        click.append(_condition_list("stCondLst", "indefinite"))
+        click_par.append(click)
+        click_children = _el("childTnLst")
+        click.append(click_children)
+        group_par = _el("par")
+        click_children.append(group_par)
+        group = _el("cTn", id=next(ids), fill="hold")
+        group.append(_condition_list("stCondLst", 0))
+        group_par.append(group)
+        group_children = _el("childTnLst")
+        group.append(group_children)
+        plan = _normalize_plan(motion)
+        for shape_index, shape in enumerate(shapes):
+            shape_id = shape.shape_id
+            text_target = bool(
+                getattr(shape, "has_text_frame", False)
+                and str(getattr(shape, "text", "")).strip()
+            )
+            for action_index, action in enumerate(plan):
+                action = dict(action)
+                # One DOM motion marker can own several generated OOXML objects.
+                # The first object opens the click sequence; every other object
+                # starts with it so the audience perceives one semantic group.
+                if shape_index and action_index == 0:
+                    action["trigger"] = "with"
+                    action["delay"] = 0
+                group_children.append(_effect_par(ids, shape_id, action, text_target))
+            build = _el("bldP", spid=shape_id, grpId=0)
+            if len(plan) > 1:
+                build.set("build", "allAtOnce")
+            # Match PowerPoint's native output: a card's fill is a background
+            # build, while a non-empty text box must not be marked animBg or
+            # only its transparent surface will animate.
+            if not text_target:
+                build.set("animBg", "1")
+            build_list.append(build)
     return timing
 
 
@@ -434,11 +460,17 @@ def apply_native_animations(slide, motions: list[dict[str, Any]], target_map: di
     bound = []
     skipped = []
     for motion in motions or []:
-        shape = target_map.get(motion.get("id"))
-        if shape is None:
+        shapes = target_map.get(motion.get("id"))
+        if shapes is None:
             skipped.append(motion.get("id"))
             continue
-        bound.append((motion, shape.shape_id))
+        if not isinstance(shapes, (list, tuple)):
+            shapes = [shapes]
+        shapes = [shape for shape in shapes if shape is not None]
+        if not shapes:
+            skipped.append(motion.get("id"))
+            continue
+        bound.append((motion, shapes))
     if not bound:
         return {"emitted": [], "skipped": skipped}
 

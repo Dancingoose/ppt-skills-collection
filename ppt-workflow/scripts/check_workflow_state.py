@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import importlib.util
+import itertools
 import json
 import re
 import sys
@@ -53,9 +54,41 @@ INTENT_QUESTIONS_V2 = (
     ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
     ("designBoldness", 3), ("referenceStyle", 3),
 )
+INTENT_QUESTIONS_V3 = (
+    ("audience", 1), ("intent", 1), ("coreClaim", 1), ("canvas", 1),
+    ("language", 2), ("expectedOutcome", 2), ("useScene", 2), ("deliveryUse", 2),
+    ("storyline", 3), ("contentFocus", 3), ("informationDensity", 3),
+    ("designBoldness", 3), ("visualSampleConfirmation", 4),
+)
+PAGE_ARCHETYPES = {
+    "hero", "context", "evidence", "data", "comparison", "process", "transition",
+    "recommendation", "action",
+}
+COMPOSITION_FAMILIES = {
+    "modular-grid", "asymmetric-columns", "full-bleed-sequence", "editorial-stack",
+    "process-flow", "matrix", "timeline", "single-axis", "comparison-split",
+}
+DESIGN_ORCHESTRATION_SKILLS = (
+    "claude-design", "ui-ux-pro-max", "mbb-decks",
+    "frontend-design", "axi-front-design",
+)
+DESIGN_ORCHESTRATION_FILES = {
+    "claude-design": "design-directions.md",
+    "ui-ux-pro-max": "design-research.md",
+    "mbb-decks": "ghost-deck.md",
+    "frontend-design": "frontend-design-review.md",
+    "axi-front-design": "visual-direction-preview.html",
+}
+DESIGN_AXES = (
+    "narrativeStance", "compositionGeometry", "visualTemperature",
+    "typographicLanguage", "informationStructure", "imageTreatment",
+    "chartLanguage", "motionStrategy",
+)
 
 
 def intent_questions_for_schema(schema_version):
+    if schema_version == 3:
+        return INTENT_QUESTIONS_V3
     return INTENT_QUESTIONS_V2 if schema_version == 2 else INTENT_QUESTIONS_V1
 
 
@@ -109,6 +142,11 @@ def normalized_sha256(value):
         return ""
     value = value.strip().lower()
     return value if re.fullmatch(r"[0-9a-f]{64}", value) else ""
+
+
+def canonical_sha256(value):
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def load_json_artifact(task_dir: Path, name, label, v: Validator):
@@ -225,11 +263,31 @@ def check_intent(state, task_dir, v):
     if not isinstance(intake, dict):
         return
     schema_version = intake.get("schemaVersion")
-    v.require(schema_version in {1, 2}, "intent questionnaire has a supported schema version")
-    questions = intent_questions_for_schema(schema_version)
+    v.require(schema_version in {1, 2, 3}, "intent questionnaire has a supported schema version")
+    design_profile = decision.get("designProfile", {})
+    pre_design_v3 = (
+        schema_version == 3
+        and not design_profile
+    )
+    questions = INTENT_QUESTIONS_V3[:12] if pre_design_v3 else intent_questions_for_schema(schema_version)
     question_batch = dict(questions)
+    expected_batch_order = list(dict.fromkeys(batch for _, batch in questions))
+    expected_by_batch = {
+        batch: [question_id for question_id, expected_batch in questions if expected_batch == batch]
+        for batch in expected_batch_order
+    }
     v.require(intake.get("skill") == "ppt-workflow-intake", "intent questionnaire uses the packaged intake skill")
-    v.require(intake.get("completed") is True, "intent questionnaire is marked complete")
+    revision_requested = (
+        schema_version == 3
+        and isinstance(design_profile, dict)
+        and design_profile.get("status") == "revision-requested"
+    )
+    if pre_design_v3:
+        v.require(intake.get("completed") is False,
+                  "pre-design intent questionnaire remains incomplete before visual samples")
+    else:
+        v.require(intake.get("completed") is True or revision_requested,
+                  "intent questionnaire is marked complete")
 
     responses = intake.get("responses")
     v.require(isinstance(responses, list) and len(responses) == len(questions),
@@ -255,7 +313,7 @@ def check_intent(state, task_dir, v):
                           "design boldness response records a level from 1 to 5")
         v.require([response.get("id") if isinstance(response, dict) else None for response in responses]
                   == [question_id for question_id, _ in questions],
-                  "intent responses follow the required three-batch question order")
+                  "intent responses follow the required question order")
         answers_by_id = {
             response.get("id"): response.get("answer", "").strip()
             for response in responses if isinstance(response, dict) and isinstance(response.get("answer"), str)
@@ -268,12 +326,8 @@ def check_intent(state, task_dir, v):
     v.require(seen_ids == set(question_batch), "intent questionnaire includes every required question exactly once")
 
     batches = intake.get("batches")
-    v.require(isinstance(batches, list) and len(batches) == 3,
-              "intent questionnaire records all three question batches")
-    expected_by_batch = {
-        batch: [question_id for question_id, expected_batch in questions if expected_batch == batch]
-        for batch in (1, 2, 3)
-    }
+    v.require(isinstance(batches, list) and len(batches) == len(expected_batch_order),
+              "intent questionnaire records all required question batches")
     seen_batches = set()
     if isinstance(batches, list):
         for batch_record in batches:
@@ -284,12 +338,284 @@ def check_intent(state, task_dir, v):
             if batch in expected_by_batch:
                 seen_batches.add(batch)
                 v.require(batch_record.get("questionIds") == expected_by_batch[batch],
-                          f"intent batch {batch} contains its required four questions in order")
+                          f"intent batch {batch} contains its required questions in order")
             v.value(batch_record, "creatorConfirmation",
                     f"intent batch {batch!r} records the creator's response evidence")
-        v.require([batch_record.get("batch") if isinstance(batch_record, dict) else None for batch_record in batches] == [1, 2, 3],
+        v.require([batch_record.get("batch") if isinstance(batch_record, dict) else None for batch_record in batches] == expected_batch_order,
                   "intent batches are recorded in creator-response order")
-    v.require(seen_batches == {1, 2, 3}, "intent questionnaire records batches 1, 2, and 3")
+    for batch in expected_batch_order:
+        v.require(batch in seen_batches, f"intent batch {batch} is recorded")
+    v.require(seen_batches == set(expected_batch_order),
+              "intent questionnaire records every required batch exactly once")
+
+
+def check_design_profile(decision, task_dir, v):
+    """Validate V3 visual samples while allowing an unapproved revision record."""
+    profile = decision.get("designProfile", {})
+    v.require(isinstance(profile, dict), "decision design profile is recorded")
+    profile = profile if isinstance(profile, dict) else {}
+    v.require(profile.get("schemaVersion") == 1, "design profile has schema version 1")
+    status = profile.get("status")
+    v.require(status in {"confirmed", "revision-requested"},
+              "design profile has a supported status")
+
+    preview_name = v.value(profile, "previewArtifact", "design profile preview artifact is recorded")
+    preview_path = task_artifact_path(task_dir, preview_name)
+    v.require(preview_path is not None and preview_path.is_file(),
+              "design profile preview artifact exists")
+    preview_html = preview_path.read_text(encoding="utf-8", errors="ignore") if preview_path and preview_path.is_file() else ""
+
+    candidates = profile.get("candidates")
+    v.require(isinstance(candidates, list) and len(candidates) == 3,
+              "design profile records exactly 3 candidates")
+    candidates = candidates if isinstance(candidates, list) else []
+    required_sources = [question_id for question_id, _ in INTENT_QUESTIONS_V3[:12]]
+    contract_keys = (
+        "narrativeStance", "compositionGeometry", "visualTemperature", "typographicLanguage",
+        "backgroundStrategy", "primaryBackgroundMode", "compositionFamily",
+    )
+    candidate_ids = []
+    contracts = {}
+    for candidate in candidates:
+        candidate = candidate if isinstance(candidate, dict) else {}
+        candidate_id = v.value(candidate, "id", "visual candidate has an id")
+        if isinstance(candidate_id, str):
+            candidate_ids.append(candidate_id)
+        v.value(candidate, "name", f"visual candidate {candidate_id!r} has a name")
+        v.value(candidate, "rationale", f"visual candidate {candidate_id!r} has a rationale")
+        v.require(candidate.get("sourceQuestionIds") == required_sources,
+                  f"visual candidate {candidate_id} cites the first 12 V3 intake questions in order")
+        contract = candidate.get("visualContract")
+        v.require(isinstance(contract, dict), f"visual candidate {candidate_id} records a visual contract")
+        contract = contract if isinstance(contract, dict) else {}
+        for key in contract_keys:
+            v.value(contract, key, f"visual candidate {candidate_id} visual contract has {key}")
+        v.require(contract.get("backgroundStrategy") in {"uniform", "rhythmic"},
+                  f"visual candidate {candidate_id} background strategy is supported")
+        v.require(contract.get("primaryBackgroundMode") in {"dark", "light"},
+                  f"visual candidate {candidate_id} primary background mode is supported")
+        v.require(contract.get("compositionFamily") in COMPOSITION_FAMILIES,
+                  f"visual candidate {candidate_id} composition family is supported")
+        if isinstance(candidate_id, str):
+            contracts[candidate_id] = contract
+            marker = rf"data-design-profile=[\"']{re.escape(candidate_id)}[\"']"
+            v.require(bool(re.search(marker, preview_html)),
+                      f"visual direction preview embeds candidate {candidate_id}")
+            family_marker = rf"data-composition-family=[\"']{re.escape(str(contract.get('compositionFamily')))}[\"']"
+            v.require(bool(re.search(rf"<[^>]*{marker}[^>]*{family_marker}[^>]*>", preview_html)),
+                      f"visual direction preview records candidate {candidate_id} composition family")
+    v.require(len(candidate_ids) == len(set(candidate_ids)), "visual candidate ids are unique")
+    for first_id, second_id in itertools.combinations(candidate_ids, 2):
+        first_contract = contracts.get(first_id, {})
+        second_contract = contracts.get(second_id, {})
+        differences = sum(first_contract.get(key) != second_contract.get(key) for key in contract_keys)
+        v.require(differences >= 3,
+                  f"visual candidates {first_id} and {second_id} differ in at least 3 visual contract dimensions")
+    composition_families = [contracts[item].get("compositionFamily") for item in candidate_ids if item in contracts]
+    v.require(len(composition_families) == len(set(composition_families)),
+              "visual candidates use distinct composition families")
+
+    intake = decision.get("intentQuestionnaire", {})
+    completed = intake.get("completed") if isinstance(intake, dict) else None
+    responses = intake.get("responses") if isinstance(intake, dict) else []
+    responses = responses if isinstance(responses, list) else []
+    sample_answer = next((response.get("answer") for response in responses
+                          if isinstance(response, dict) and response.get("id") == "visualSampleConfirmation"), None)
+    if status == "confirmed":
+        selected_profile_id = profile.get("selectedProfileId")
+        v.require(selected_profile_id in candidate_ids,
+                  "confirmed design profile selects one proposed candidate")
+        v.value(profile, "creatorConfirmation", "confirmed design profile records creator confirmation")
+        v.value(profile, "evidence", "confirmed design profile records confirmation evidence")
+        v.require(completed is True, "confirmed design profile has a completed visual sample questionnaire")
+        v.require(sample_answer == selected_profile_id,
+                  "visual sample confirmation answer exactly matches the selected design profile")
+    elif status == "revision-requested":
+        v.value(profile, "revisionFeedback", "revision-requested design profile records revision feedback")
+        v.require(completed is False,
+                  "revision-requested design profile keeps the visual sample questionnaire incomplete")
+    return status == "confirmed"
+
+
+def check_design_orchestration(decision, task_dir, v, html_path=None, require_selection=True):
+    """Require the fixed design-skill chain and bind its output to the task."""
+    orchestration = decision.get("designOrchestration", {})
+    v.require(isinstance(orchestration, dict), "design orchestration is recorded")
+    orchestration = orchestration if isinstance(orchestration, dict) else {}
+    v.require(orchestration.get("schemaVersion") == 1, "design orchestration has schema version 1")
+    artifact_name = v.value(orchestration, "artifact", "design orchestration artifact is recorded")
+    artifact_path = task_artifact_path(task_dir, artifact_name)
+    v.require(artifact_path is not None and artifact_path.is_file(), "design orchestration artifact exists")
+    artifact_document = load_json_artifact(task_dir, artifact_name, "design orchestration", v)
+    actual_orchestration_hash = hashlib.sha256(artifact_path.read_bytes()).hexdigest() if artifact_path and artifact_path.is_file() else ""
+    recorded_orchestration_hash = v.value(orchestration, "sha256", "design orchestration artifact records its SHA-256")
+    v.require(normalized_sha256(recorded_orchestration_hash) == actual_orchestration_hash,
+              "design orchestration artifact hash matches the current file")
+    v.require(artifact_document.get("schemaVersion") == 1, "design orchestration artifact has schema version 1")
+
+    bindings = decision.get("intentBindings", {})
+    bindings_hash = canonical_sha256(bindings) if isinstance(bindings, dict) else ""
+    v.require(normalized_sha256(orchestration.get("intentBindingsSha256")) == bindings_hash,
+              "design orchestration is bound to the current intent constraints")
+    v.require(artifact_document.get("intentBindingsSha256") == orchestration.get("intentBindingsSha256"),
+              "design orchestration artifact agrees with intent constraint binding")
+
+    records = orchestration.get("artifacts")
+    v.require(isinstance(records, list) and [item.get("skill") for item in records if isinstance(item, dict)]
+              == list(DESIGN_ORCHESTRATION_SKILLS)
+              and [item.get("file") for item in records if isinstance(item, dict)]
+              == [DESIGN_ORCHESTRATION_FILES[skill] for skill in DESIGN_ORCHESTRATION_SKILLS],
+              "design orchestration records every required skill artifact")
+    v.require(artifact_document.get("artifacts") == records,
+              "design orchestration artifact agrees with the manifest skill artifacts")
+    records = records if isinstance(records, list) else []
+    expected_input_hash = bindings_hash
+    for record in records:
+        record = record if isinstance(record, dict) else {}
+        skill = record.get("skill")
+        filename = record.get("file")
+        path = task_artifact_path(task_dir, filename)
+        v.require(path is not None and path.is_file(), f"design orchestration {skill} artifact exists")
+        actual_hash = hashlib.sha256(path.read_bytes()).hexdigest() if path and path.is_file() else ""
+        v.require(normalized_sha256(record.get("inputSha256")) == expected_input_hash,
+                  "design orchestration artifact input hash chain is continuous")
+        content = path.read_text(encoding="utf-8", errors="ignore") if path and path.is_file() else ""
+        v.require(bool(re.search(rf"Input SHA-256:\s*{re.escape(expected_input_hash)}\b", content, re.I)),
+                  f"design orchestration {skill} artifact records its reviewed input hash")
+        v.require(normalized_sha256(record.get("sha256")) == actual_hash,
+                  f"design orchestration {skill} artifact hash matches the current file")
+        expected_input_hash = actual_hash
+
+    recipes = decision.get("designRecipes")
+    v.require(isinstance(recipes, list) and len(recipes) == 3,
+              "design orchestration records exactly three design recipes")
+    recipes = recipes if isinstance(recipes, list) else []
+    v.require(artifact_document.get("recipes") == recipes,
+              "design orchestration artifact and manifest agree on design recipes")
+    recipe_ids = []
+    for recipe in recipes:
+        recipe = recipe if isinstance(recipe, dict) else {}
+        recipe_id = v.value(recipe, "id", "design recipe has an id")
+        if isinstance(recipe_id, str):
+            recipe_ids.append(recipe_id)
+        for key in ("theme", "signature", *DESIGN_AXES):
+            v.value(recipe, key, f"design recipe {recipe_id!r} has {key}")
+        lenses = recipe.get("sourceLenses")
+        v.require(isinstance(lenses, list) and lenses == list(DESIGN_ORCHESTRATION_SKILLS),
+                  "every design recipe uses every required design skill lens")
+        sample_slide_ids = recipe.get("sampleSlideIds")
+        v.require(isinstance(sample_slide_ids, list) and len(sample_slide_ids) >= 2
+                  and all(isinstance(slide_id, int) for slide_id in sample_slide_ids),
+                  f"design recipe {recipe_id!r} records sample slide ids")
+        constraints = recipe.get("adoptedConstraints")
+        v.require(isinstance(constraints, list) and bool(constraints)
+                  and all(isinstance(item, str) and item.strip() for item in constraints),
+                  "design recipe translates ui-ux-pro-max research")
+    v.require(len(recipe_ids) == 3 and len(recipe_ids) == len(set(recipe_ids)),
+              "design recipe ids are unique")
+    for first, second in itertools.combinations(recipes, 2):
+        first = first if isinstance(first, dict) else {}
+        second = second if isinstance(second, dict) else {}
+        differences = sum(first.get(axis) != second.get(axis) for axis in DESIGN_AXES)
+        v.require(differences >= 3, "design recipes differ across at least three design axes")
+
+    preview_name = DESIGN_ORCHESTRATION_FILES["axi-front-design"]
+    preview_path = task_artifact_path(task_dir, preview_name)
+    preview_html = preview_path.read_text(encoding="utf-8", errors="ignore") if preview_path and preview_path.is_file() else ""
+    preview_hash = hashlib.sha256(preview_path.read_bytes()).hexdigest() if preview_path and preview_path.is_file() else ""
+    v.require(normalized_sha256(orchestration.get("previewSha256")) == preview_hash,
+              "design orchestration preview hash matches the current file")
+    v.require(artifact_document.get("previewSha256") == orchestration.get("previewSha256"),
+              "design orchestration artifact agrees with preview hash")
+    for recipe_id in recipe_ids:
+        v.require(bool(re.search(rf"data-design-recipe=[\"']{re.escape(recipe_id)}[\"']", preview_html)),
+                  f"design orchestration preview embeds recipe {recipe_id}")
+
+    if require_selection:
+        selected_recipe_id = orchestration.get("selectedRecipeId")
+        profile = decision.get("designProfile", {})
+        profile = profile if isinstance(profile, dict) else {}
+        v.require(selected_recipe_id in recipe_ids and selected_recipe_id == profile.get("selectedProfileId"),
+                  "selected design recipe matches the confirmed design profile")
+        v.require(artifact_document.get("selectedRecipeId") == selected_recipe_id,
+                  "design orchestration artifact locks the selected design recipe")
+    else:
+        v.require(not orchestration.get("selectedRecipeId"),
+                  "pre-selection design orchestration does not select a recipe")
+        v.require(not artifact_document.get("selectedRecipeId"),
+                  "pre-selection design orchestration artifact does not select a recipe")
+
+    if html_path is not None:
+        execution_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path.is_file() else ""
+        v.require(normalized_sha256(orchestration.get("executionHtmlSha256")) == execution_hash,
+                  "design orchestration execution hash matches the current HTML")
+    return orchestration
+
+
+def check_design_candidates(state, task_dir, v):
+    """Validate the fixed five-skill chain before the creator sees batch 4."""
+    check_intent(state, task_dir, v)
+    decision = state.get("decision", {})
+    intake = decision.get("intentQuestionnaire", {})
+    v.require(isinstance(intake, dict) and intake.get("schemaVersion") == 3,
+              "design candidate gate uses the V3 intake")
+    v.require(isinstance(intake, dict) and intake.get("completed") is False,
+              "design candidate gate runs before visual sample confirmation")
+    v.require(not decision.get("designProfile"),
+              "design candidate gate runs before a design profile is selected")
+    check_v3_intent_bindings(decision, v)
+    check_design_orchestration(decision, task_dir, v, require_selection=False)
+
+
+def check_v3_intent_bindings(decision, v):
+    """Require V3 answers to become explicit content, composition, and delivery constraints."""
+    bindings = decision.get("intentBindings", {})
+    v.require(isinstance(bindings, dict), "V3 intent bindings are recorded")
+    bindings = bindings if isinstance(bindings, dict) else {}
+    v.require(bindings.get("creatorConfirmed") is True,
+              "V3 intent bindings are creator-confirmed")
+    v.value(bindings, "evidence", "V3 intent bindings record creator evidence")
+
+    responses = decision.get("intentQuestionnaire", {}).get("responses", [])
+    responses = responses if isinstance(responses, list) else []
+    answers = {
+        item.get("id"): item.get("answer", "").strip()
+        for item in responses if isinstance(item, dict) and isinstance(item.get("answer"), str)
+    }
+    design_boldness = next((item.get("level") for item in responses
+                            if isinstance(item, dict) and item.get("id") == "designBoldness"), None)
+
+    content = bindings.get("content", {})
+    v.require(isinstance(content, dict), "V3 content intent bindings are recorded")
+    content = content if isinstance(content, dict) else {}
+    for key, question_id in (("storyline", "storyline"), ("focus", "contentFocus"), ("density", "informationDensity")):
+        v.require(content.get(key) == answers.get(question_id),
+                  f"V3 content binding {key} exactly matches the creator answer")
+    for key, label in (("mustInclude", "content must-include boundaries"), ("mustAvoid", "content must-avoid boundaries")):
+        value = content.get(key)
+        v.require(isinstance(value, list) and bool(value) and all(isinstance(item, str) and item.strip() for item in value), label)
+
+    composition = bindings.get("composition", {})
+    v.require(isinstance(composition, dict), "V3 composition intent bindings are recorded")
+    composition = composition if isinstance(composition, dict) else {}
+    v.require(composition.get("boldnessLevel") == design_boldness,
+              "V3 composition boldness binding exactly matches the creator answer")
+    v.value(composition, "densityRule", "V3 composition binding records an information-density rule")
+    visual_avoid = composition.get("visualMustAvoid")
+    v.require(isinstance(visual_avoid, list) and bool(visual_avoid)
+              and all(isinstance(item, str) and item.strip() for item in visual_avoid),
+              "visual composition must-avoid boundaries")
+
+    delivery = bindings.get("delivery", {})
+    v.require(isinstance(delivery, dict), "V3 delivery intent bindings are recorded")
+    delivery = delivery if isinstance(delivery, dict) else {}
+    for key, question_id in (("expectedOutcome", "expectedOutcome"), ("useScene", "useScene"), ("deliveryUse", "deliveryUse")):
+        v.require(delivery.get(key) == answers.get(question_id),
+                  f"V3 delivery binding {key} exactly matches the creator answer")
+    delivery_constraints = delivery.get("mustSupport")
+    v.require(isinstance(delivery_constraints, list) and bool(delivery_constraints)
+              and all(isinstance(item, str) and item.strip() for item in delivery_constraints),
+              "delivery must-support boundaries")
 
 
 def check_decision(state, task_dir, v):
@@ -306,6 +632,12 @@ def check_decision(state, task_dir, v):
         v.value(phase2, key, f"decision.phase2.{key} is non-empty")
     check_image_sourcing_plan(phase2, task_dir, phase2.get("pageCount"), v)
     intake = decision.get("intentQuestionnaire", {})
+    design_profile_confirmed = True
+    if isinstance(intake, dict) and intake.get("schemaVersion") == 3:
+        design_profile_confirmed = check_design_profile(decision, task_dir, v)
+        check_v3_intent_bindings(decision, v)
+        check_design_orchestration(decision, task_dir, v)
+        v.require(design_profile_confirmed, "design profile is confirmed before formal decision")
     if isinstance(intake, dict) and intake.get("schemaVersion") == 2:
         boldness = phase2.get("designBoldness", {})
         v.require(isinstance(boldness, dict), "decision design boldness is recorded")
@@ -332,6 +664,23 @@ def check_decision(state, task_dir, v):
     passport = decision.get("passport", {})
     for key in ("theme", "accent", "background", "titleFont", "bodyFont", "style"):
         v.value(passport, key, f"decision.passport.{key} is non-empty")
+    if intake.get("schemaVersion") == 3:
+        profile = decision.get("designProfile", {})
+        selected_id = profile.get("selectedProfileId")
+        selected = next((candidate for candidate in profile.get("candidates", [])
+                         if isinstance(candidate, dict) and candidate.get("id") == selected_id), {})
+        passport_profile = passport.get("designProfile", {})
+        v.require(passport_profile.get("id") == selected_id,
+                  "passport locks the selected design profile id")
+        v.require(passport_profile.get("visualContract") == selected.get("visualContract"),
+                  "passport locks the selected design profile visual contract")
+        selected_contract = selected.get("visualContract", {}) if isinstance(selected, dict) else {}
+        v.require(passport.get("backgroundStrategy") == selected_contract.get("backgroundStrategy"),
+                  "passport background strategy matches the selected visual contract")
+        v.require(passport.get("primaryBackgroundMode") == selected_contract.get("primaryBackgroundMode"),
+                  "passport primary background mode matches the selected visual contract")
+        v.require(passport_profile.get("visualContract", {}).get("compositionFamily") == selected_contract.get("compositionFamily"),
+                  "passport composition family matches the selected visual contract")
     v.require(passport.get("backgroundStrategy") in {"uniform", "rhythmic"},
               "decision.passport.backgroundStrategy is uniform or rhythmic")
     v.require(passport.get("primaryBackgroundMode") in {"dark", "light"},
@@ -428,6 +777,111 @@ def check_color_continuity_review(review, task_dir, html, html_path, slides, see
             ), f"slide {slide_id} embeds its reviewed {mode} color system")
 
 
+def check_v3_execution_reviews(execution, task_dir, html_path, slides, seen_ids, selected_profile_id, v):
+    rhythm = execution.get("deckRhythmReview", {})
+    v.require(rhythm.get("skill") == "ppt-workflow-review", "deck rhythm review uses the packaged review skill")
+    artifact_name = v.value(rhythm, "artifact", "deck rhythm review artifact is recorded")
+    artifact = load_json_artifact(task_dir, artifact_name, "deck rhythm review", v)
+    v.require(artifact.get("schemaVersion") == 1, "deck rhythm review artifact has schema version")
+    v.require(artifact.get("skill") == "ppt-workflow-review", "deck rhythm review artifact identifies the review skill")
+    v.require(artifact.get("result") == rhythm.get("result") and rhythm.get("result") in {"pass", "revised"},
+              "deck rhythm review artifact has an approved result")
+    sequence = [{"id": item.get("id"), "archetype": item.get("archetype"),
+                 "compositionFamily": item.get("compositionFamily")} for item in slides]
+    v.require(artifact.get("archetypeSequence") == sequence, "deck rhythm review matches the execution archetype sequence")
+    archetypes = [item.get("archetype") for item in slides]
+    v.require(not any(archetypes[index:index + 3] == [archetypes[index]] * 3
+                      for index in range(max(0, len(archetypes) - 2))),
+              "deck rhythm has no three consecutive matching archetypes")
+    if len(slides) >= 10:
+        available = set(archetypes)
+        v.require({"hero", "action"}.issubset(available) and bool({"data", "evidence"} & available),
+                  "long deck includes hero, evidence or data, and action archetypes")
+        v.require("transition" in available, "long deck includes an intentional transition archetype")
+
+    review = execution.get("designProfileReview", {})
+    v.require(review.get("skill") == "ppt-workflow-review", "design profile review uses the packaged review skill")
+    review_name = v.value(review, "artifact", "design profile review artifact is recorded")
+    profile_artifact = load_json_artifact(task_dir, review_name, "design profile review", v)
+    v.require(profile_artifact.get("schemaVersion") == 1, "design profile review artifact has schema version")
+    v.require(profile_artifact.get("skill") == "ppt-workflow-review", "design profile review artifact identifies the review skill")
+    v.require(profile_artifact.get("result") == review.get("result") and review.get("result") in {"pass", "revised"},
+              "design profile review artifact has an approved result")
+    expected_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
+    for source in (review, profile_artifact):
+        v.require(source.get("selectedProfileId") == selected_profile_id,
+                  "design profile review locks the selected profile")
+        reviewed = source.get("reviewedSlides")
+        v.require(isinstance(reviewed, list) and set(reviewed) == seen_ids and len(reviewed) == len(seen_ids),
+                  "design profile review covers every slide exactly once")
+        v.require(normalized_sha256(source.get("htmlSha256")) == expected_hash,
+                  "design profile review applies to the current execution HTML")
+    dimensions = profile_artifact.get("reviewedDimensions")
+    v.require(isinstance(dimensions, list) and {"typography", "spacing", "imageTreatment", "chartLanguage", "composition"}.issubset(dimensions),
+              "design profile review covers typography, spacing, image treatment, chart language, and composition")
+    v.require(isinstance(profile_artifact.get("exceptions"), list), "design profile review records exceptions as a list")
+    v.value(review, "notes", "design profile review has notes")
+    v.value(profile_artifact, "notes", "design profile review artifact has notes")
+
+
+def check_v3_intent_continuity_review(state, task_dir, html_path, slides, seen_ids, v):
+    """Verify that intent, approved preview, source HTML, and delivery review remain one chain."""
+    execution = state.get("execution", {})
+    decision = state.get("decision", {})
+    review = execution.get("intentContinuityReview", {})
+    v.require(review.get("skill") == "ppt-workflow-review",
+              "intent continuity review uses the packaged review skill")
+    artifact_name = v.value(review, "artifact", "intent continuity review artifact is recorded")
+    artifact = load_json_artifact(task_dir, artifact_name, "intent continuity review", v)
+    v.require(artifact.get("schemaVersion") == 1, "intent continuity review artifact has schema version")
+    v.require(artifact.get("skill") == "ppt-workflow-review",
+              "intent continuity review artifact identifies the review skill")
+    v.require(review.get("result") in {"pass", "revised"}, "intent continuity review has an approved result")
+    v.require(artifact.get("result") == review.get("result"),
+              "intent continuity review artifact agrees with the manifest result")
+
+    preview = decision.get("preview", {})
+    preview = preview if isinstance(preview, dict) else {}
+    preview_name = preview.get("html") if isinstance(preview, dict) else None
+    preview_path = task_artifact_path(task_dir, preview_name)
+    preview_hash = hashlib.sha256(preview_path.read_bytes()).hexdigest() if preview_path and preview_path.is_file() else ""
+    execution_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
+    for source in (review, artifact):
+        v.require(normalized_sha256(source.get("previewSha256")) == preview_hash,
+                  "intent continuity review applies to the current approved preview")
+        v.require(normalized_sha256(source.get("executionHtmlSha256")) == execution_hash,
+                  "intent continuity review applies to the current execution HTML")
+
+    intent_responses = decision.get("intentQuestionnaire", {}).get("responses", [])
+    intent_responses = intent_responses if isinstance(intent_responses, list) else []
+    expected_intent_ids = [item.get("id") for item in intent_responses if isinstance(item, dict)]
+    expected_slide_ids = [item.get("id") for item in slides]
+    v.require(artifact.get("intentQuestionIds") == expected_intent_ids,
+              "intent continuity review covers every confirmed intent answer in order")
+    v.require(artifact.get("previewSlideIds") == preview.get("slideIds"),
+              "intent continuity review covers the approved preview slides")
+    v.require(artifact.get("executionSlideIds") == expected_slide_ids,
+              "intent continuity review covers every execution slide")
+    selected_id = decision.get("designProfile", {}).get("selectedProfileId")
+    v.require(artifact.get("selectedProfileId") == selected_id,
+              "intent continuity review locks the selected visual profile")
+    bindings = decision.get("intentBindings", {})
+    v.require(artifact.get("intentBindingsSha256") == canonical_sha256(bindings),
+              "intent continuity review locks the current intent bindings")
+
+    checks = artifact.get("checks")
+    v.require(isinstance(checks, dict), "intent continuity review records its quality-loop checks")
+    checks = checks if isinstance(checks, dict) else {}
+    for key in ("intentToPreview", "previewToExecution", "executionToDelivery"):
+        v.require(checks.get(key) == "pass", f"intent continuity check {key} passes")
+    v.require(isinstance(artifact.get("revisionRound"), int) and artifact["revisionRound"] >= 1,
+              "intent continuity review records a revision round")
+    v.require(isinstance(artifact.get("exceptions"), list),
+              "intent continuity review records exceptions as a list")
+    v.value(review, "notes", "intent continuity review has notes")
+    v.value(artifact, "notes", "intent continuity review artifact has notes")
+
+
 def check_execution(state, task_dir, v):
     check_intent(state, task_dir, v)
     execution = state.get("execution", {})
@@ -445,6 +899,7 @@ def check_execution(state, task_dir, v):
     planned_count = state.get("prep", {}).get("pagePlan", {}).get("count")
     v.require(len(slides) == planned_count, "execution slide count matches preparation plan")
     intake_schema = state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion")
+    selected_recipe_id = state.get("decision", {}).get("designOrchestration", {}).get("selectedRecipeId")
     phase2 = state.get("decision", {}).get("phase2", {})
     image_records = check_image_sourcing_plan(phase2, task_dir, expected_count, v)
     boldness_level = phase2.get("designBoldness", {}).get("level")
@@ -470,6 +925,33 @@ def check_execution(state, task_dir, v):
             for tag in tags
         )
         v.require(discoverable_tag, f"slide {slide_id} is explicitly discoverable by the converter")
+        if intake_schema == 3:
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-design-recipe=[\"']{re.escape(selected_recipe_id) if isinstance(selected_recipe_id, str) else '(?!)'}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} embeds the confirmed design recipe")
+            archetype = item.get("archetype")
+            v.require(archetype in PAGE_ARCHETYPES, f"slide {slide_id} has a supported page archetype")
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-archetype=[\"']{re.escape(archetype) if isinstance(archetype, str) else '(?!)'}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} archetype is embedded in its HTML container")
+            composition_family = item.get("compositionFamily")
+            v.require(composition_family in COMPOSITION_FAMILIES,
+                      f"slide {slide_id} has a supported composition family")
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-composition-family=[\"']{re.escape(composition_family) if isinstance(composition_family, str) else '(?!)'}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} composition family is embedded in its HTML container")
+            background_mode = "dark" if bool(item.get("dark")) else "light"
+            v.require(any(
+                re.search(rf"data-slide-id=[\"']{slide_id}[\"']", tag)
+                and re.search(rf"data-background-mode=[\"']{background_mode}[\"']", tag)
+                for tag in tags
+            ), f"slide {slide_id} background mode is embedded in its HTML container")
         evidence = item.get("layoutEvidence", {})
         item_count = evidence.get("itemCount")
         v.require(isinstance(item_count, int) and item_count >= 0, f"slide {slide_id} records a layout item count")
@@ -541,7 +1023,12 @@ def check_execution(state, task_dir, v):
             minimum_bold = max(1, (len(slides) + 4) // 5)
             used_bold = sum(pattern in BOLD_COMPOSITION_PATTERNS for pattern in composition_patterns)
             v.require(used_bold >= minimum_bold,
-                      "bold design uses bold or experimental compositions on at least 20 percent of slides")
+                  "bold design uses bold or experimental compositions on at least 20 percent of slides")
+    if intake_schema == 3:
+        families = [item.get("compositionFamily") for item in slides]
+        v.require(not any(families[index:index + 3] == [families[index]] * 3
+                          for index in range(max(0, len(families) - 2))),
+                  "composition families do not repeat three times consecutively")
     if len(slides) >= 10:
         grid_indices = [index for index, item in enumerate(slides) if item.get("layout") in CARD_GRID_LAYOUTS]
         maximum_grids = max(1, len(slides) // 5)
@@ -593,6 +1080,13 @@ def check_execution(state, task_dir, v):
     actual_html_hash = hashlib.sha256(html_path.read_bytes()).hexdigest() if html_path and html_path.is_file() else ""
     v.require(normalized_sha256(reviewed_html_hash) == actual_html_hash, "source HTML has not changed since visual review")
     check_color_continuity_review(execution.get("colorContinuityReview", {}), task_dir, html, html_path, slides, seen_ids, v)
+    if intake_schema == 3:
+        check_design_orchestration(state.get("decision", {}), task_dir, v, html_path)
+        check_v3_execution_reviews(
+            execution, task_dir, html_path, slides, seen_ids,
+            state.get("decision", {}).get("designProfile", {}).get("selectedProfileId"), v,
+        )
+        check_v3_intent_continuity_review(state, task_dir, html_path, slides, seen_ids, v)
     review = execution.get("independentReview", {})
     v.require(review.get("result") in {"pass", "revised"}, "independent execution review has a result")
     v.value(review, "notes", "independent execution review has notes")
@@ -603,6 +1097,8 @@ def check_delivery(state, task_dir, v):
     delivery = state.get("delivery", {})
     phase2 = state.get("decision", {}).get("phase2", {})
     intake_schema = state.get("decision", {}).get("intentQuestionnaire", {}).get("schemaVersion")
+    if intake_schema == 3:
+        check_execution(state, task_dir, v)
     if intake_schema == 2 and phase2.get("motionDelivery", {}).get("mode") == "pptx-plus-live-html":
         v.require(isinstance(delivery.get("output"), str) and delivery.get("output", "").lower().endswith(".pptx"),
                   "live HTML delivery includes a static PPTX fallback output")
@@ -660,24 +1156,109 @@ def check_delivery(state, task_dir, v):
                   "delivery audit artifact agrees with PPTX hash")
         v.value(artifact, "renderer", "delivery audit artifact names the rendering engine")
         v.value(artifact, "notes", "delivery audit artifact has notes")
+        if intake_schema == 3:
+            high_risk_pages = audit.get("unresolvedHighRiskPages")
+            structural_warnings = audit.get("structuralWarnings")
+            v.require(high_risk_pages == [], "V3 delivery has zero unresolved high-risk preflight pages")
+            v.require(structural_warnings == 0, "V3 delivery has zero structural self-check warnings")
+
+            checks = artifact.get("checks")
+            v.require(isinstance(checks, dict), "V3 delivery audit artifact has converter checks")
+            checks = checks if isinstance(checks, dict) else {}
+            preflight = checks.get("preflight")
+            v.require(isinstance(preflight, dict), "V3 delivery audit artifact has preflight evidence")
+            preflight = preflight if isinstance(preflight, dict) else {}
+            v.require(preflight.get("status") == "pass", "V3 delivery preflight evidence passes")
+            v.require(preflight.get("highRiskPages") == high_risk_pages,
+                      "V3 delivery preflight evidence agrees with unresolved high-risk pages")
+
+            self_check = checks.get("structuralSelfCheck")
+            v.require(isinstance(self_check, dict), "V3 delivery audit artifact has structural self-check evidence")
+            self_check = self_check if isinstance(self_check, dict) else {}
+            v.require(self_check.get("status") == "pass", "V3 delivery structural self-check evidence passes")
+            warning_count = self_check.get("warningCount")
+            if not isinstance(warning_count, int):
+                known_counts = [self_check.get("layoutOverlaps"), self_check.get("fullSlidePictures")]
+                warning_count = sum(known_counts) if all(isinstance(count, int) for count in known_counts) else None
+            v.require(warning_count == structural_warnings,
+                      "V3 delivery structural self-check evidence agrees with warning count")
+
+        native_motion_slides = [
+            slide.get("id") for slide in expected_pages
+            if isinstance(slide, dict)
+            and isinstance(slide.get("visualEffect"), dict)
+            and slide["visualEffect"].get("status") == "applied"
+            and slide["visualEffect"].get("type") == "native-motion"
+        ]
+        if native_motion_slides:
+            motion_audit = delivery.get("motionAudit", {})
+            v.require(isinstance(motion_audit, dict), "native motion audit is recorded")
+            motion_audit = motion_audit if isinstance(motion_audit, dict) else {}
+            v.require(motion_audit.get("result") == "pass", "native motion audit passes")
+            reviewed = motion_audit.get("reviewedSlides")
+            v.require(isinstance(reviewed, list) and set(native_motion_slides).issubset(set(reviewed)),
+                      "native motion audit reviewed every animated slide")
+            motion_hash = v.value(motion_audit, "pptxSha256", "native motion audit records the audited PPTX hash")
+            v.require(normalized_sha256(motion_hash) == actual_pptx_hash,
+                      "PPTX has not changed since native motion audit")
+            motion_name = v.value(motion_audit, "artifact", "native motion audit artifact is recorded")
+            motion_artifact = load_json_artifact(task_dir, motion_name, "native motion audit", v)
+            v.require(motion_artifact.get("schemaVersion") == 1,
+                      "native motion audit artifact has schema version")
+            v.require(motion_artifact.get("kind") == "native-motion-audit",
+                      "native motion audit artifact has native-motion kind")
+            v.require(motion_artifact.get("result") == "pass",
+                      "native motion audit artifact passes")
+            v.require(normalized_sha256(motion_artifact.get("pptxSha256")) == actual_pptx_hash,
+                      "native motion audit artifact agrees with PPTX hash")
+            audited_slides = {
+                slide.get("index"): slide for slide in motion_artifact.get("slides", [])
+                if isinstance(slide, dict) and isinstance(slide.get("index"), int)
+            }
+            for slide_id in native_motion_slides:
+                slide_audit = audited_slides.get(slide_id, {})
+                v.require(isinstance(slide_audit, dict),
+                          f"native motion audit includes slide {slide_id}")
+                v.require(slide_audit.get("textBackgroundOnlyBuilds") == 0,
+                          f"native motion slide {slide_id} does not animate only a text box background")
+                v.require(slide_audit.get("backgroundTargetCount") == 0,
+                          f"native motion slide {slide_id} does not use unsupported background targets")
+            com = motion_artifact.get("powerPointCom", {})
+            v.require(isinstance(com, dict) and com.get("status") in {"pass", "unavailable"},
+                      "native motion audit has PowerPoint COM recognition evidence")
+            if isinstance(com, dict) and com.get("status") == "unavailable":
+                v.value(motion_audit, "notes", "native motion audit explains unavailable PowerPoint COM")
+            v.require(motion_audit.get("slideshowObserved") is True,
+                      "native motion slideshow playback was observed")
+            v.value(motion_audit, "evidence", "native motion slideshow observation has evidence")
+            playback = motion_artifact.get("slideshowPlayback", {})
+            v.require(isinstance(playback, dict) and playback.get("observed") is True,
+                      "native motion audit artifact records slideshow observation")
+            if isinstance(playback, dict):
+                v.value(playback, "evidence", "native motion artifact has slideshow observation evidence")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Validate structured PPT workflow evidence")
     parser.add_argument("--task", required=True, type=Path)
-    parser.add_argument("--layer", required=True, choices=("prep", "intent", "decision", "exec", "deliver", "all"))
+    parser.add_argument("--layer", required=True, choices=("prep", "intent", "design", "decision", "exec", "deliver", "all"))
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     v = Validator()
     state = load_state(args.task, v)
-    checks = {"prep": check_prep, "intent": check_intent, "decision": check_decision, "exec": check_execution, "deliver": check_delivery}
-    selected = checks if args.layer == "all" else {args.layer: checks[args.layer]}
+    checks = {"prep": check_prep, "intent": check_intent, "design": check_design_candidates, "decision": check_decision, "exec": check_execution, "deliver": check_delivery}
+    # The design gate is intentionally pre-selection; a completed workflow cannot
+    # satisfy it because the creator has already selected a recipe.
+    selected = (
+        {name: check for name, check in checks.items() if name != "design"}
+        if args.layer == "all" else {args.layer: checks[args.layer]}
+    )
     for name, check in selected.items():
         if name == "exec":
             check(state, args.task, v)
         elif name == "deliver":
             check(state, args.task, v)
-        elif name in {"prep", "decision", "intent"}:
+        elif name in {"prep", "design", "decision", "intent"}:
             check(state, args.task, v)
         else:
             check(state, args.task, v)

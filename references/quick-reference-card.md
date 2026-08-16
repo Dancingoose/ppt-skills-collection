@@ -2,7 +2,16 @@
 
 > 给 axi-front-design 执行层 Step 4 用。读此卡代替通读全部 5 个资产库（~120KB），需要具体线框/规则时再按需跳转对应文件。
 
-## Phase 1 材料驱动提问（12 项 · 3 批 · → material-driven-questioning.md）
+## V3 意图与样张确认（13 项 · 4 批）
+
+- 前 12 项按 `4+4+4` 收集，随后根据回答和素材动态提出 3 个差异化视觉样张。
+- 第 13 项为样张确认；“都不符合”必须写修改意见并重生样张，未确认即停止。
+- 已选方案的视觉契约锁入护照；每页声明 `archetype` 并在 HTML 写 `data-archetype`。
+- 输出 `deck-rhythm-review.json` 和 `design-profile-review.json`；禁止连续三页同原型，十页以上必须有开场、证据/数据、转场和行动页。
+- 记录 `decision.intentBindings`：内容 `mustInclude/mustAvoid`、构图 `visualMustAvoid`、交付 `mustSupport` 均不能为空，并检查故事线、信息密度、期望结果、场景和用途与问卷答案逐项一致。
+- 执行后生成 `intent-continuity-review.json`，绑定问卷、批准预览、最终 HTML 和交付审查；任一文件变化都要重新审查。
+
+## 旧版 Phase 1 材料驱动提问（仅用于历史兼容）
 > 有 content-inventory.md 时，选项由 agent 读材料现场生成（每个选项须能在材料找到出处）；无材料回退通用骨架。
 - **第一批**：受众 · 沟通意图 · 核心主张（提炼候选+Other） · 画布（标注材料适配理由）
 - **第二批**：语言 · 期望结果（与意图联动） · 场景 · 交付用途

@@ -127,6 +127,7 @@ SCAN_JS = r"""
           code: 'R001',
           name: 'large-deco-with-text-neighbor',
           severity: 'high',
+          blocking: reasons.includes('clip-with-transformed-children'),
           detail: `覆盖 ${(area/slideArea*100).toFixed(0)}% · ${reasons.join(' + ')} · 与文字兄弟共存`,
           where: describe(el),
         });
@@ -389,6 +390,7 @@ def preflight(html_path: Path, out_json: Path | None = None,
         "summary": {
             "total_risks": 0,
             "by_severity": {"high": 0, "medium": 0, "low": 0},
+            "blocking_risks": [],
             "manual_review_slides": [],
             "manual_review_reason": {},
         },
@@ -426,6 +428,8 @@ def preflight(html_path: Path, out_json: Path | None = None,
             for r in risks:
                 result["summary"]["total_risks"] += 1
                 result["summary"]["by_severity"][r["severity"]] += 1
+                if r.get("blocking"):
+                    result["summary"]["blocking_risks"].append({"page": i + 1, "code": r.get("code")})
 
             for fam in data.get("fonts", []):
                 global_fonts.add(fam)
@@ -479,6 +483,8 @@ def _print_summary(result: dict, elapsed: float):
           f"(high={s['by_severity']['high']}, "
           f"medium={s['by_severity']['medium']}, "
           f"low={s['by_severity']['low']})")
+    if s.get("blocking_risks"):
+        print(f"[preflight] BLOCKING risks: {s['blocking_risks']}")
 
     if s.get("external_fonts"):
         print(f"[preflight] 外部字体: {', '.join(s['external_fonts'])}  "

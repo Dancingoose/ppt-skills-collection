@@ -1,55 +1,566 @@
 {
   "schemaVersion": 1,
-  "task": {"name": "example", "deliveryFormat": "pptx"},
+  "task": {
+    "name": "example",
+    "deliveryFormat": "pptx"
+  },
   "prep": {
     "sourceType": "spoken-topic",
     "coreMessage": "A specific, contestable conclusion.",
-    "pagePlan": {"count": 8, "chapters": ["Context", "Evidence", "Recommendation"]},
-    "dataPoints": [{"claim": "A sourced quantitative claim", "source": "Publisher", "url": "https://example.com"}]
-  },
-  "decision": {
-    "phase1": {"audience": "Leadership", "intent": "Decision", "coreClaim": "A specific conclusion", "canvas": "ppt169"},
-    "intentQuestionnaire": {
-      "schemaVersion": 2,
-      "skill": "ppt-workflow-intake",
-      "completed": false,
-      "responses": [
-        {"id": "audience", "batch": 1, "question": "Who is the audience?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "intent", "batch": 1, "question": "What communication intent should the deck serve?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "coreClaim", "batch": 1, "question": "What core claim should the audience retain?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "canvas", "batch": 1, "question": "Which delivery canvas is required?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "language", "batch": 2, "question": "Which language should the deck use?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "expectedOutcome", "batch": 2, "question": "What outcome should the deck achieve?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "useScene", "batch": 2, "question": "In what setting will the deck be used?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "deliveryUse", "batch": 2, "question": "How will the deck be delivered or consumed?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "storyline", "batch": 3, "question": "Which narrative structure should guide the deck?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "contentFocus", "batch": 3, "question": "Which content deserves the strongest emphasis?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "informationDensity", "batch": 3, "question": "What information density should the deck use?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "designBoldness", "batch": 3, "question": "How bold should the design be, from 1 (conservative) to 5 (experimental)?", "answer": "[TBD]", "level": 0, "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"},
-        {"id": "referenceStyle", "batch": 3, "question": "Which reference style should the deck follow?", "answer": "[TBD]", "source": "creator-confirmed", "evidence": "[TBD: creator response reference]"}
-      ],
-      "batches": [
-        {"batch": 1, "questionIds": ["audience", "intent", "coreClaim", "canvas"], "creatorConfirmation": "[TBD: creator response after batch 1]"},
-        {"batch": 2, "questionIds": ["language", "expectedOutcome", "useScene", "deliveryUse"], "creatorConfirmation": "[TBD: creator response after batch 2]"},
-        {"batch": 3, "questionIds": ["storyline", "contentFocus", "informationDensity", "designBoldness", "referenceStyle"], "creatorConfirmation": "[TBD: creator response after batch 3]"}
+    "pagePlan": {
+      "count": 8,
+      "chapters": [
+        "Context",
+        "Evidence",
+        "Recommendation"
       ]
     },
-    "phase2": {"pageCount": 8, "theme": "swiss-grid", "contentHandling": "extend", "imageSource": "none", "imageSourcingPlan": {"artifact": "image-sourcing-plan.md"}, "designBoldness": {"level": 0, "profile": "[TBD]"}, "motionDelivery": {"mode": "[TBD: pptx-static or pptx-plus-live-html]", "creatorConfirmed": false, "evidence": "[TBD: creator response reference]"}},
-    "passport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial", "backgroundStrategy": "rhythmic", "primaryBackgroundMode": "light"},
-    "antiTemplateReview": {"reviewer": "ppt-workflow-review", "skill": "ppt-workflow-review", "artifact": "anti-template-review.json", "result": "pass", "notes": "No default card stack or unsuitable type. The artifact records intent, evidence, theme, typography, and layout review."},
-    "preview": {"html": "preview.html", "slideIds": [1, 2], "result": "approved", "notes": "The creator approved the cover and representative data page before full expansion."}
+    "dataPoints": [
+      {
+        "claim": "A sourced quantitative claim",
+        "source": "Publisher",
+        "url": "https://example.com"
+      }
+    ]
+  },
+  "decision": {
+    "phase1": {
+      "audience": "管理层",
+      "intent": "决策",
+      "coreClaim": "AI 市场进入规模化应用期",
+      "canvas": "ppt169"
+    },
+    "intentQuestionnaire": {
+      "schemaVersion": 3,
+      "skill": "ppt-workflow-intake",
+      "completed": true,
+      "responses": [
+        {
+          "id": "audience",
+          "batch": 1,
+          "question": "谁是受众？",
+          "answer": "管理层",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 1 批确认"
+        },
+        {
+          "id": "intent",
+          "batch": 1,
+          "question": "沟通意图是什么？",
+          "answer": "决策",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 1 批确认"
+        },
+        {
+          "id": "coreClaim",
+          "batch": 1,
+          "question": "希望受众记住的核心观点？",
+          "answer": "AI 市场进入规模化应用期",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 1 批确认"
+        },
+        {
+          "id": "canvas",
+          "batch": 1,
+          "question": "交付画幅是什么？",
+          "answer": "ppt169",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 1 批确认"
+        },
+        {
+          "id": "language",
+          "batch": 2,
+          "question": "使用什么语言？",
+          "answer": "中文",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 2 批确认"
+        },
+        {
+          "id": "expectedOutcome",
+          "batch": 2,
+          "question": "期望达成什么结果？",
+          "answer": "获得投资方向共识",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 2 批确认"
+        },
+        {
+          "id": "useScene",
+          "batch": 2,
+          "question": "在什么场景使用？",
+          "answer": "会议室投影",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 2 批确认"
+        },
+        {
+          "id": "deliveryUse",
+          "batch": 2,
+          "question": "如何交付或使用？",
+          "answer": "现场演讲",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 2 批确认"
+        },
+        {
+          "id": "storyline",
+          "batch": 3,
+          "question": "采用什么叙事结构？",
+          "answer": "问题、证据、行动",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 3 批确认"
+        },
+        {
+          "id": "contentFocus",
+          "batch": 3,
+          "question": "最应强调什么内容？",
+          "answer": "市场数据与增长机会",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 3 批确认"
+        },
+        {
+          "id": "informationDensity",
+          "batch": 3,
+          "question": "信息密度如何？",
+          "answer": "高密度",
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 3 批确认"
+        },
+        {
+          "id": "designBoldness",
+          "batch": 3,
+          "question": "设计表达的大胆程度？",
+          "answer": "4",
+          "level": 4,
+          "source": "creator-confirmed",
+          "evidence": "创作者在第 3 批确认"
+        },
+        {
+          "id": "visualSampleConfirmation",
+          "batch": 4,
+          "question": "确认哪一份视觉样张？",
+          "answer": "观点叙事",
+          "source": "creator-confirmed",
+          "evidence": "创作者在视觉样张复核后确认"
+        }
+      ],
+      "batches": [
+        {
+          "batch": 1,
+          "questionIds": [
+            "audience",
+            "intent",
+            "coreClaim",
+            "canvas"
+          ],
+          "creatorConfirmation": "创作者在第 1 批确认"
+        },
+        {
+          "batch": 2,
+          "questionIds": [
+            "language",
+            "expectedOutcome",
+            "useScene",
+            "deliveryUse"
+          ],
+          "creatorConfirmation": "创作者在第 2 批确认"
+        },
+        {
+          "batch": 3,
+          "questionIds": [
+            "storyline",
+            "contentFocus",
+            "informationDensity",
+            "designBoldness"
+          ],
+          "creatorConfirmation": "创作者在第 3 批确认"
+        },
+        {
+          "batch": 4,
+          "questionIds": [
+            "visualSampleConfirmation"
+          ],
+          "creatorConfirmation": "创作者在视觉样张复核后确认"
+        }
+      ]
+    },
+    "designProfile": {
+      "schemaVersion": 1,
+      "status": "confirmed",
+      "previewArtifact": "visual-direction-preview.html",
+      "candidates": [
+        {
+          "id": "证据矩阵",
+          "name": "证据矩阵",
+          "rationale": "将高密度市场数据组织为可扫读的决策证据。",
+          "sourceQuestionIds": [
+            "audience",
+            "intent",
+            "coreClaim",
+            "canvas",
+            "language",
+            "expectedOutcome",
+            "useScene",
+            "deliveryUse",
+            "storyline",
+            "contentFocus",
+            "informationDensity",
+            "designBoldness"
+          ],
+          "visualContract": {
+            "narrativeStance": "证据优先",
+            "compositionGeometry": "模块网格",
+            "visualTemperature": "冷静",
+            "typographicLanguage": "紧凑无衬线",
+            "backgroundStrategy": "uniform",
+            "primaryBackgroundMode": "light",
+            "compositionFamily": "modular-grid"
+          }
+        },
+        {
+          "id": "观点叙事",
+          "name": "观点叙事",
+          "rationale": "用鲜明的管理层观点串联数据与行动建议。",
+          "sourceQuestionIds": [
+            "audience",
+            "intent",
+            "coreClaim",
+            "canvas",
+            "language",
+            "expectedOutcome",
+            "useScene",
+            "deliveryUse",
+            "storyline",
+            "contentFocus",
+            "informationDensity",
+            "designBoldness"
+          ],
+          "visualContract": {
+            "narrativeStance": "观点优先",
+            "compositionGeometry": "非对称分栏",
+            "visualTemperature": "温暖",
+            "typographicLanguage": "编辑衬线",
+            "backgroundStrategy": "uniform",
+            "primaryBackgroundMode": "light",
+            "compositionFamily": "asymmetric-columns"
+          }
+        },
+        {
+          "id": "增长动势",
+          "name": "增长动势",
+          "rationale": "把市场机会呈现为通向未来状态的连续旅程。",
+          "sourceQuestionIds": [
+            "audience",
+            "intent",
+            "coreClaim",
+            "canvas",
+            "language",
+            "expectedOutcome",
+            "useScene",
+            "deliveryUse",
+            "storyline",
+            "contentFocus",
+            "informationDensity",
+            "designBoldness"
+          ],
+          "visualContract": {
+            "narrativeStance": "未来状态",
+            "compositionGeometry": "全幅序列",
+            "visualTemperature": "中性",
+            "typographicLanguage": "展示无衬线",
+            "backgroundStrategy": "uniform",
+            "primaryBackgroundMode": "light",
+            "compositionFamily": "full-bleed-sequence"
+          }
+        }
+      ],
+      "selectedProfileId": "观点叙事",
+      "creatorConfirmation": "创作者选择“观点叙事”样张。",
+      "evidence": "第 13 项视觉样张确认记录。"
+    },
+    "intentBindings": {
+      "creatorConfirmed": true,
+      "evidence": "创作者在第 3 批确认了内容、构图和交付边界。",
+      "content": {
+        "storyline": "问题、证据、行动",
+        "focus": "市场数据与增长机会",
+        "density": "高密度",
+        "mustInclude": ["市场数据来源", "增长机会结论"],
+        "mustAvoid": ["无来源的精确预测"]
+      },
+      "composition": {
+        "boldnessLevel": 4,
+        "densityRule": "高密度页使用分层信息和可扫读数据版式。",
+        "visualMustAvoid": ["连续使用等宽卡片网格", "低对比小字"]
+      },
+      "delivery": {
+        "expectedOutcome": "获得投资方向共识",
+        "useScene": "会议室投影",
+        "deliveryUse": "现场演讲",
+        "mustSupport": ["远距离可读", "演讲者可用页面作为讲述提纲"]
+      }
+    },
+    "designRecipes": [
+      {
+        "id": "证据矩阵",
+        "theme": "swiss-grid",
+        "narrativeStance": "证据优先",
+        "compositionGeometry": "模块网格",
+        "visualTemperature": "冷静",
+        "typographicLanguage": "紧凑无衬线",
+        "informationStructure": "证据矩阵",
+        "imageTreatment": "纪实裁切",
+        "chartLanguage": "分析型图表",
+        "motionStrategy": "静态揭示",
+        "signature": "证据侧栏",
+        "sourceLenses": ["claude-design", "ui-ux-pro-max", "mbb-decks", "frontend-design", "axi-front-design"],
+        "sampleSlideIds": [1, 2],
+        "adoptedConstraints": ["采用 UI UX 研究给出的高对比度证据层级。"]
+      },
+      {
+        "id": "观点叙事",
+        "theme": "editorial-serif",
+        "narrativeStance": "观点优先",
+        "compositionGeometry": "非对称分栏",
+        "visualTemperature": "温暖",
+        "typographicLanguage": "编辑衬线",
+        "informationStructure": "论点弧线",
+        "imageTreatment": "编辑细节",
+        "chartLanguage": "标注式比较",
+        "motionStrategy": "节奏化序列",
+        "signature": "观点页边",
+        "sourceLenses": ["claude-design", "ui-ux-pro-max", "mbb-decks", "frontend-design", "axi-front-design"],
+        "sampleSlideIds": [3, 4],
+        "adoptedConstraints": ["将 UI UX 色彩和可访问性研究转译为编辑调色板。"]
+      },
+      {
+        "id": "增长动势",
+        "theme": "aurora",
+        "narrativeStance": "未来状态",
+        "compositionGeometry": "全幅序列",
+        "visualTemperature": "中性",
+        "typographicLanguage": "展示无衬线",
+        "informationStructure": "决策旅程",
+        "imageTreatment": "场景化氛围",
+        "chartLanguage": "轨迹图表",
+        "motionStrategy": "渐进地平线",
+        "signature": "动势地平线",
+        "sourceLenses": ["claude-design", "ui-ux-pro-max", "mbb-decks", "frontend-design", "axi-front-design"],
+        "sampleSlideIds": [5, 6],
+        "adoptedConstraints": ["仅在交付方式可播放时采用动效研究建议。"]
+      }
+    ],
+    "designOrchestration": {
+      "schemaVersion": 1,
+      "artifact": "design-orchestration.json",
+      "sha256": "[design-orchestration.json 的 SHA-256]",
+      "intentBindingsSha256": "[decision.intentBindings 的规范 SHA-256]",
+      "previewSha256": "[visual-direction-preview.html 的 SHA-256]",
+      "executionHtmlSha256": "[design.html 的 SHA-256，仅在执行完成后填写]",
+      "selectedRecipeId": "观点叙事",
+      "artifacts": [
+        {"skill": "claude-design", "file": "design-directions.md", "inputSha256": "[intentBindings SHA-256]", "sha256": "[SHA-256]"},
+        {"skill": "ui-ux-pro-max", "file": "design-research.md", "inputSha256": "[design-directions.md SHA-256]", "sha256": "[SHA-256]"},
+        {"skill": "mbb-decks", "file": "ghost-deck.md", "inputSha256": "[design-research.md SHA-256]", "sha256": "[SHA-256]"},
+        {"skill": "frontend-design", "file": "frontend-design-review.md", "inputSha256": "[ghost-deck.md SHA-256]", "sha256": "[SHA-256]"},
+        {"skill": "axi-front-design", "file": "visual-direction-preview.html", "inputSha256": "[frontend-design-review.md SHA-256]", "sha256": "[SHA-256]"}
+      ]
+    },
+    "phase2": {
+      "pageCount": 8,
+      "theme": "观点叙事",
+      "contentHandling": "extend",
+      "imageSource": "none",
+      "imageSourcingPlan": {
+        "artifact": "image-sourcing-plan.md"
+      }
+    },
+    "passport": {
+      "theme": "观点叙事",
+      "accent": "#0057B8",
+      "background": "#FFFFFF",
+      "titleFont": "Noto Serif SC",
+      "bodyFont": "Noto Sans SC",
+      "style": "高密度观点叙事",
+      "backgroundStrategy": "uniform",
+      "primaryBackgroundMode": "light",
+      "designProfile": {
+        "id": "观点叙事",
+        "name": "观点叙事",
+        "visualContract": {
+          "narrativeStance": "观点优先",
+          "compositionGeometry": "非对称分栏",
+          "visualTemperature": "温暖",
+          "typographicLanguage": "编辑衬线",
+          "backgroundStrategy": "uniform",
+          "primaryBackgroundMode": "light",
+          "compositionFamily": "asymmetric-columns"
+        }
+      }
+    },
+    "antiTemplateReview": {
+      "reviewer": "ppt-workflow-review",
+      "skill": "ppt-workflow-review",
+      "artifact": "anti-template-review.json",
+      "result": "pass",
+      "notes": "No default card stack or unsuitable type. The artifact records intent, evidence, theme, typography, and layout review."
+    },
+    "preview": {
+      "html": "preview.html",
+      "slideIds": [
+        1,
+        2
+      ],
+      "result": "approved",
+      "notes": "The creator approved the cover and representative data page before full expansion."
+    }
   },
   "execution": {
     "html": "design.html",
-    "lockedPassport": {"theme": "swiss-grid", "accent": "#0057B8", "background": "#FFFFFF", "titleFont": "Helvetica", "bodyFont": "Noto Sans SC", "style": "Swiss editorial"},
+    "lockedPassport": {
+      "theme": "观点叙事",
+      "accent": "#0057B8",
+      "background": "#FFFFFF",
+      "titleFont": "Noto Serif SC",
+      "bodyFont": "Noto Sans SC",
+      "style": "高密度观点叙事",
+      "backgroundStrategy": "uniform",
+      "primaryBackgroundMode": "light",
+      "designProfile": {
+        "id": "观点叙事",
+        "name": "观点叙事",
+        "visualContract": {
+          "narrativeStance": "观点优先",
+          "compositionGeometry": "非对称分栏",
+          "visualTemperature": "温暖",
+          "typographicLanguage": "编辑衬线",
+          "backgroundStrategy": "uniform",
+          "primaryBackgroundMode": "light",
+          "compositionFamily": "asymmetric-columns"
+        }
+      }
+    },
     "slides": [
-      {"id": 1, "layout": "A1", "contentType": "cover", "dark": true, "layoutEvidence": {"itemCount": 0, "sourceRefs": ["content-inventory.md: Slide 1"]}, "visualEffect": {"status": "skipped", "reason": "Text-led cover; no effect supports the message."}},
-      {"id": 2, "layout": "B6", "contentType": "data", "dataSources": ["Publisher"], "dark": false, "layoutEvidence": {"itemCount": 1, "sourceRefs": ["Publisher"], "numericValues": [12000000]}, "visualEffect": {"status": "applied", "type": "echarts", "reason": "Trend data benefits from a chart."}}
+      {
+        "id": 1,
+        "archetype": "hero",
+        "layout": "A1",
+        "contentType": "cover",
+        "dark": true,
+        "layoutEvidence": {
+          "itemCount": 0,
+          "sourceRefs": [
+            "content-inventory.md: Slide 1"
+          ]
+        },
+        "visualEffect": {
+          "status": "skipped",
+          "reason": "Text-led cover; no effect supports the message."
+        },
+        "compositionFamily": "full-bleed-sequence"
+      },
+      {
+        "id": 2,
+        "archetype": "data",
+        "layout": "B6",
+        "contentType": "data",
+        "dataSources": [
+          "Publisher"
+        ],
+        "dark": false,
+        "layoutEvidence": {
+          "itemCount": 1,
+          "sourceRefs": [
+            "Publisher"
+          ],
+          "numericValues": [
+            12000000
+          ]
+        },
+        "visualEffect": {
+          "status": "applied",
+          "type": "echarts",
+          "reason": "Trend data benefits from a chart."
+        },
+        "compositionFamily": "single-axis"
+      }
     ],
-    "effectScan": {"skill": "ppt-workflow-effects", "artifact": "effects-scan.json", "reviewedSlides": [1, 2]},
-    "sourceVisualReview": {"result": "pass", "reviewedSlides": [1, 2], "htmlSha256": "[SHA-256 of the reviewed execution HTML]", "notes": "Reviewed every source HTML slide at its native canvas size for overlap, clipping, and contrast before conversion."},
-    "colorContinuityReview": {"skill": "ppt-workflow-review", "artifact": "color-continuity-review.json", "result": "pass", "reviewedSlides": [1, 2], "htmlSha256": "[SHA-256 of the reviewed execution HTML]", "notes": "Reviewed every slide in sequence. The light and dark systems retain their specified base color, visual temperature, and dominant surface treatment; no page creates a false background shift."},
-    "independentReview": {"result": "pass", "notes": "No overlap, overflow, or contrast issue."}
+    "effectScan": {
+      "skill": "ppt-workflow-effects",
+      "artifact": "effects-scan.json",
+      "reviewedSlides": [
+        1,
+        2
+      ]
+    },
+    "sourceVisualReview": {
+      "result": "pass",
+      "reviewedSlides": [
+        1,
+        2
+      ],
+      "htmlSha256": "[SHA-256 of the reviewed execution HTML]",
+      "notes": "Reviewed every source HTML slide at its native canvas size for overlap, clipping, and contrast before conversion."
+    },
+    "colorContinuityReview": {
+      "skill": "ppt-workflow-review",
+      "artifact": "color-continuity-review.json",
+      "result": "pass",
+      "reviewedSlides": [
+        1,
+        2
+      ],
+      "htmlSha256": "[SHA-256 of the reviewed execution HTML]",
+      "notes": "Reviewed every slide in sequence. The light and dark systems retain their specified base color, visual temperature, and dominant surface treatment; no page creates a false background shift."
+    },
+    "deckRhythmReview": {
+      "skill": "ppt-workflow-review",
+      "artifact": "deck-rhythm-review.json",
+      "result": "pass"
+    },
+    "designProfileReview": {
+      "skill": "ppt-workflow-review",
+      "artifact": "design-profile-review.json",
+      "result": "pass",
+      "selectedProfileId": "观点叙事",
+      "reviewedSlides": [
+        1,
+        2
+      ],
+      "htmlSha256": "[SHA-256 of the reviewed execution HTML]",
+      "notes": "逐页核验字体、留白、图片处理、图表语言与构图符合已确认方案。"
+    },
+    "intentContinuityReview": {
+      "skill": "ppt-workflow-review",
+      "artifact": "intent-continuity-review.json",
+      "result": "pass",
+      "previewSha256": "[SHA-256 of preview.html]",
+      "executionHtmlSha256": "[SHA-256 of design.html]",
+      "notes": "复核意图、预览、执行和交付之间没有发生语义或视觉漂移。"
+    },
+    "independentReview": {
+      "result": "pass",
+      "notes": "No overlap, overflow, or contrast issue."
+    }
   },
-  "delivery": {"converterHealthChecked": true, "canvasRasterizationAcknowledged": true, "output": "example.pptx", "audit": {"result": "pass", "reviewedPages": 2, "pptxSha256": "[SHA-256 of the audited PPTX]", "artifact": "pptx-audit.json", "notes": "Reviewed HTML/PPT comparisons and resolved all findings."}, "liveHtml": {"output": "[Required only for pptx-plus-live-html]", "playbackAudit": {"result": "pass", "motionObserved": true, "htmlSha256": "[SHA-256 of the reviewed live HTML]", "notes": "Observed the selected effects playing at the native canvas size."}}}
+  "delivery": {
+    "converterHealthChecked": true,
+    "canvasRasterizationAcknowledged": true,
+    "output": "example.pptx",
+    "audit": {
+      "result": "pass",
+      "reviewedPages": 2,
+      "pptxSha256": "[SHA-256 of the audited PPTX]",
+      "artifact": "pptx-audit.json",
+      "unresolvedHighRiskPages": [],
+      "structuralWarnings": 0,
+      "notes": "Reviewed HTML/PPT comparisons and resolved all findings."
+    },
+    "liveHtml": {
+      "output": "[Required only for pptx-plus-live-html]",
+      "playbackAudit": {
+        "result": "pass",
+        "motionObserved": true,
+        "htmlSha256": "[SHA-256 of the reviewed live HTML]",
+        "notes": "Observed the selected effects playing at the native canvas size."
+      }
+    }
+  }
 }

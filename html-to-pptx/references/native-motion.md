@@ -77,6 +77,26 @@ The generated nodes are `p:animMotion`, `p:animScale`, `p:animRot`, and
 independent PresentationML writer; external SVG/SMIL converters are useful
 references but are not copied because their licenses may not be compatible.
 
+## Semantic Groups and Text Builds
+
+Apply a motion marker to the smallest **semantic group**, not an arbitrary
+child. A card is normally one group: its background shape, illustration, and
+copy enter together on one click. Marking only the text or only the image
+makes the narrative look disconnected. When an image is deliberate static
+context, keep it outside the marked group and animate the sequence elements
+that the presenter is explaining.
+
+- Each independently explained item gets its own click group; its generated
+  background and text effects run together (`with previous`).
+- A non-empty text box uses PowerPoint's ordinary `p:spTgt` target and a
+  `p:bldP` **without** `animBg`. `animBg="1"` is only for a background shape.
+  Setting it on text animates the transparent text-box surface rather than the
+  glyphs, which can leave the audience seeing no text animation.
+- Do not hand-write `p:bg` targets or force `txEl` targets. They can look
+  present in the Animation Pane yet fail in desktop Slide Show mode.
+- Pages that act as a stable reading or scanning endpoint should explicitly
+  record `visualEffect.status: "skipped"`; animation is not a default.
+
 ## Embedded Video Motion
 
 For WebGL, Canvas, shaders, particles, video compositing, or arbitrary
@@ -106,8 +126,16 @@ interactive PowerPoint objects.
 ## Workflow Gate
 
 Record native motion in `effects-scan.json` as `type: "native-motion"` and
-list each slide's chosen behavior. During delivery, inspect the static audit as
-usual and, on Windows with PowerPoint installed, run the COM recognition test:
+list each slide's chosen behavior. Conversion produces `motion-audit.json`;
+it checks click groups, synchronized effects, invalid `p:bg` targets, and text
+builds that incorrectly use `animBg`. On Windows it also asks PowerPoint COM to
+recognize the main sequence. During delivery, attach that file in
+`delivery.motionAudit`, hash it against the final PPTX, cover every animated
+slide, and record a real Slide Show observation with evidence. COM recognition,
+static HTML/PPT comparison, and the Animation Pane are supplementary checks;
+none is a substitute for observed playback.
+
+Run the focused regression suite when changing native motion:
 
 ```powershell
 D:\GPTworkspace\.venv\Scripts\python.exe -m unittest tests.test_motion -v

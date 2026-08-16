@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Design Direction"
+  short_description: "Develop diverse PPT design directions."
+  default_prompt: "Use $claude-design to create three PPT design directions."
