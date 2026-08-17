@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "mode": "append-only-template-embedding",
+  "template": {
+    "path": "C:/templates/brand-template.pptx",
+    "sha256": "[sha256 written by template_embedding.py inspect]",
+    "slideCount": 3
+  },
+  "approvedBaseSlides": [
+    {
+      "sourceSlide": 2,
+      "purpose": "standard-content",
+      "creatorConfirmation": "Approved as the background page for appended content."
+    }
+  ],
+  "safeZones": [
+    {
+      "sourceSlide": 2,
+      "x": 120,
+      "y": 180,
+      "width": 1680,
+      "height": 760,
+      "unit": "px-at-1920x1080",
+      "notes": "Do not cover the logo in the top-right corner."
+    }
+  ],
+  "rules": {
+    "preserveExistingSlides": true,
+    "preserveMastersLayoutsThemesAndMedia": true,
+    "allowOnlyAppendedSlides": true,
+    "requireVisualReview": true
+  }
+}

@@ -32,6 +32,7 @@
 - 每页选择与信息形状匹配的版式并记录依据。
 - 10 页及以上的演示文稿中，等宽卡片网格页最多占 20%，且两页之间至少间隔 3 页非网格页面，避免模板化重复。
 - 交付前验证 HTML/PPT 渲染、字体、裁切、来源和审计记录。
+- 用户要求保留既有模板时，使用追加式模板嵌入：原模板页面、Logo 背景、母版、布局、主题和媒体保持不变，仅从批准的背景页克隆并填充新增内容页；交付前必须生成模板完整性审计。
 
 ## 验证
 
@@ -40,6 +41,14 @@ python .\ppt-workflow\scripts\check_workflow_state.py --layer prep --task <task-
 python .\ppt-workflow\scripts\check_workflow_state.py --layer decision --task <task-dir>
 python .\ppt-workflow\scripts\check_workflow_state.py --layer exec --task <task-dir>
 python .\ppt-workflow\scripts\check_workflow_state.py --layer deliver --task <task-dir>
+```
+
+模板保真嵌入还需要执行：
+
+```powershell
+python .\ppt-workflow\scripts\template_embedding.py inspect --template <template.pptx> --out <task-dir>\template-embedding-plan.json
+python .\ppt-workflow\scripts\template_embedding.py clone --template <template.pptx> --out <task-dir>\working-template.pptx --source-slide <approved-slide> --count <new-page-count>
+python .\ppt-workflow\scripts\template_embedding.py verify --template <template.pptx> --output <task-dir>\final.pptx --report <task-dir>\template-integrity-audit.json
 ```
 
 ## 依赖与来源

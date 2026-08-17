@@ -25,7 +25,7 @@ V3 还必须生成 `decision.intentBindings`：将问卷答案明确绑定到内
 
 ## 核心原则
 
-**PPTX 是 HTML 设计稿的导出格式，不是创作媒介。** 禁止直接用 python-pptx/pptxgenjs 手工拼形状——那是之前反复翻车的根因。
+**PPTX 是 HTML 设计稿的导出格式，不是创作媒介。** 禁止直接用 python-pptx/pptxgenjs 手工拼形状——那是之前反复翻车的根因。唯一例外是本文件定义的“模板保真嵌入模式”：它必须复制既有模板包、只向克隆页写入内容，并通过 `template_embedding.py verify` 证明原模板部件未变。
 
 ## 四层架构
 
@@ -63,6 +63,40 @@ V3 还必须生成 `decision.intentBindings`：将问卷答案明确绑定到内
 产出：源内容全文 + 图片资源清单 + 核心信息一句话总结。将产出写入任务文件夹的 **`content-inventory.md`** 和 **`workflow-state.json`**。默认任务目录为 `<workspace_root>/workflow-runs/<任务名>/`；需要跨 session 保留时，改用用户确认的持久目录。对需要非数据配图但没有用户提供素材的页面，另写 `image-sourcing-plan.md`：要么登记可授权网络检索方案，要么登记 `no-image` 版式；不生成、不索取、也不使用 AI 生成图。
 
 > ⚠️ 不得假设固定盘符或 session 临时目录。`content-inventory.md` 与 `workflow-state.json` 是跨层物理载体；跨 session 共享时记录并使用绝对路径。`workflow-state.json` 从 `ppt-workflow/templates/workflow-state.example.json` 创建，所有字段必须有真实非空证据。
+
+### 模板保真嵌入模式
+
+当用户要求基于 `.pptx`/`.potx` 模板制作，且 Logo、背景图、母版、主题、布局、既有页面或动画不得被改动时，选择 `append-only-template-embedding`。这是“复制模板后追加克隆页”的模式，不得把模板当成视觉参考后重新生成独立 PPTX。
+
+1. 先将模板复制到任务目录，并运行：
+
+   ```bash
+   python <collection_root>/ppt-workflow/scripts/template_embedding.py inspect \
+     --template <template.pptx> --out <task_dir>/template-embedding-plan.json
+   ```
+
+2. 与创作者确认模板边界：可用的封面/内容/结尾背景页；是否只允许追加页；Logo 和背景安全区；以及不可改动的部件。将确认后的 `approvedBaseSlides` 和 `safeZones` 填入 `template-embedding-plan.json`。模板中的文字、图形或备注不能替代创作者的意图确认。
+3. 继续使用前 12 项意图问题，但第三批将视觉自由度改为模板边界：模板文件、背景页映射、追加页策略、Logo 安全区和禁止修改项。受众、意图、核心观点、语言、叙事、密度和交付目标仍必须由创作者确认。
+4. 第 13 项仍是一次样张确认，但展示的是三套**在同一真实模板背景上**的嵌入方案。三套方案可比较内容层级、图文比例、信息密度和安全区内的构图，不能更改背景、Logo、母版或主题。创作者确认前不得批量复制或填充页面。
+5. 从已批准的背景页追加克隆页；不要修改原模板页：
+
+   ```bash
+   python <collection_root>/ppt-workflow/scripts/template_embedding.py clone \
+     --template <template.pptx> --out <task_dir>/working-template.pptx \
+     --source-slide <approved-slide> --count <new-page-count> \
+     --manifest <task_dir>/template-clones.json
+   ```
+
+   后续只在新克隆页的已批准安全区内写入内容。若模板背景只是包含 Logo 的图片，克隆该背景页是首选方式；不重画 Logo，也不把背景转为新的 HTML 主题。
+6. 完成内容写入和视觉审查后，运行模板完整性检查并保存报告。任何 `fail` 都阻止交付：
+
+   ```bash
+   python <collection_root>/ppt-workflow/scripts/template_embedding.py verify \
+     --template <template.pptx> --output <task_dir>/final.pptx \
+     --report <task_dir>/template-integrity-audit.json
+   ```
+
+   检查会要求原始页面、媒体（包括 Logo 背景）、母版、布局和主题保持字节一致；它只允许新增页面以及为新增页面登记所必需的演示文稿关系与内容类型变化。之后仍必须按 `pptx` skill 对原模板做基线结构校验，并逐页检查安全区、文字溢出和覆盖关系。
 
 ### content-inventory.md（准备层输出物，跨层共享）
 
