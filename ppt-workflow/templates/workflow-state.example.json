@@ -1,5 +1,14 @@
 {
   "schemaVersion": 1,
+  "control": {
+    "currentLayer": "prep",
+    "status": "active",
+    "toolVersion": "1",
+    "stateSha256": "",
+    "eventHeadSha256": "",
+    "sealedAt": null,
+    "artifactHashes": {}
+  },
   "task": {
     "name": "example",
     "deliveryFormat": "pptx"

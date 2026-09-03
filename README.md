@@ -36,6 +36,18 @@
 
 ## 验证
 
+新任务建议使用可审计控制器逐层推进：
+
+```powershell
+python .\ppt-workflow\scripts\workflow_ctl.py init --task .\tasks\demo --name demo --format pptx
+python .\ppt-workflow\scripts\workflow_ctl.py verify --task .\tasks\demo --layer prep
+python .\ppt-workflow\scripts\workflow_ctl.py advance --task .\tasks\demo --to intent
+python .\ppt-workflow\scripts\workflow_ctl.py status --task .\tasks\demo
+python .\ppt-workflow\scripts\workflow_ctl.py log --task .\tasks\demo
+```
+
+完成 `deliver` 门禁后执行 `seal` 锁定交付状态。控制器会记录状态哈希、产物哈希和追加式事件链；旧任务仍可直接运行下方门禁脚本。
+
 ```powershell
 python .\ppt-workflow\scripts\check_workflow_state.py --layer prep --task <task-dir>
 python .\ppt-workflow\scripts\check_workflow_state.py --layer decision --task <task-dir>

@@ -453,6 +453,8 @@ python <collection_root>/ppt-workflow/scripts/check_workflow_state.py --layer de
 
 ## 快速参考：首次做 PPT 时的加载顺序
 
+新任务应通过 `scripts/workflow_ctl.py` 执行 `init`、`verify`、`advance`、`status`、`log` 和最终 `seal`，以获得顺序推进、状态哈希和事件链审计。意图确认、样张选择、视觉审查和最终交付确认仍由创作者完成；控制器不替代人工审美判断。旧任务和诊断场景继续支持直接调用 `check_workflow_state.py`、`check_ppt_execution.py` 等脚本。
+
 ```
 # === 准备层 ===
 Skill("docx") 或 Skill("vision-qwen") 或 WebSearch(facts+data)  # 读素材或调研
