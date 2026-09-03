@@ -70,6 +70,13 @@ class ToolingScriptTests(unittest.TestCase):
         self.assertIn("ppt-workflow\\scripts\\bootstrap.ps1 -Install", workflow)
         self.assertIn(".\\scripts\\run-tests.ps1", workflow)
 
+    def test_bootstrap_checks_render_and_com_dependencies(self):
+        bootstrap = (ROOT / "ppt-workflow" / "scripts" / "bootstrap.ps1").read_text(encoding="utf-8")
+        self.assertIn("pdf2image", bootstrap)
+        self.assertIn("win32com.client", bootstrap)
+        self.assertIn("PPT_FFMPEG_EXECUTABLE", bootstrap)
+        self.assertIn("playwright install chromium", bootstrap)
+
 
 if __name__ == "__main__":
     unittest.main()

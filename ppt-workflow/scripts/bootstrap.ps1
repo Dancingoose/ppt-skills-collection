@@ -15,6 +15,13 @@ $dependencyMap = [ordered]@{
     fontTools  = 'fonttools'
     playwright = 'playwright'
     PIL        = 'Pillow'
+    pdf2image  = 'pdf2image'
+}
+
+# pywin32 is only declared on Windows, where PowerPoint COM and native video
+# embedding are available.
+if ($env:OS -eq 'Windows_NT') {
+    $dependencyMap['win32com.client'] = 'pywin32'
 }
 
 function Resolve-Python {
@@ -83,6 +90,12 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "Dependency installation failed with exit code $LASTEXITCODE"
         }
+
+        Write-Host 'Installing Playwright Chromium browser...'
+        & $pythonPath -m playwright install chromium
+        if ($LASTEXITCODE -ne 0) {
+            throw "Playwright browser installation failed with exit code $LASTEXITCODE"
+        }
     }
 
     $missing = [System.Collections.Generic.List[string]]::new()
@@ -101,6 +114,18 @@ try {
         $quotedPython = '"' + $pythonPath + '"'
         Write-Output ("Install them with: {0} -m pip install -r ppt-workflow/requirements.txt -r html-to-pptx/requirements.txt" -f $quotedPython)
         exit 1
+    }
+
+    $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
+    if ($null -eq $ffmpeg -and [string]::IsNullOrWhiteSpace($env:PPT_FFMPEG_EXECUTABLE)) {
+        Write-Warning 'FFmpeg not found. Video-motion integration tests and native video embedding will be skipped; install FFmpeg or set PPT_FFMPEG_EXECUTABLE.'
+    } else {
+        $ffmpegPath = if (-not [string]::IsNullOrWhiteSpace($env:PPT_FFMPEG_EXECUTABLE)) {
+            $env:PPT_FFMPEG_EXECUTABLE
+        } else {
+            $ffmpeg.Source
+        }
+        Write-Host "[PASS] ffmpeg ($ffmpegPath)"
     }
 
     Write-Host 'All required Python imports are available.'

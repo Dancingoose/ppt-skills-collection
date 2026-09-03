@@ -17,7 +17,15 @@
 1. 下载整个 `ppt-skills-collection/` 文件夹。
 2. 将 `PPT_WORKFLOW_ROOT` 指向该文件夹；未设置时，插件按自身安装位置解析集合根目录。
 3. 将 `codex-plugin/` 作为 Codex 本地插件安装，或使用 `codex-plugin/scripts/deploy-plugin.ps1` 部署到本地插件目录。
-4. 首次导出前，在封包根目录运行：
+4. 首次使用前，在封包根目录运行 Python 与浏览器依赖初始化：
+
+```powershell
+.\ppt-workflow\scripts\bootstrap.ps1 -Install
+```
+
+该命令会安装两个子项目的 Python 依赖、Playwright Chromium，并检查 PDF/PowerPoint 渲染依赖。需要视频动效或视频嵌入时，Windows 还需安装带 `libx264` 的 FFmpeg；可使用 `winget install --id Gyan.FFmpeg.Essentials --exact`，或设置 `PPT_FFMPEG_EXECUTABLE` 指向已有的 `ffmpeg.exe`。
+
+只初始化 HTML 转换器运行时时，也可运行：
 
 ```powershell
 .\html-to-pptx\scripts\bootstrap-runtime.ps1
@@ -65,4 +73,4 @@ python .\ppt-workflow\scripts\template_embedding.py verify --template <template.
 
 ## 依赖与来源
 
-运行时需要 Python 3.10+、Playwright 和 PowerPoint/PDF 处理依赖；`bootstrap-runtime.ps1` 会完成转换器的运行时初始化。各组成部分的上游来源与许可证说明保留在对应技能文件中。
+运行时需要 Python 3.10+、Playwright Chromium、PPTX/PDF 处理依赖，以及 Windows PowerPoint（用于 COM 渲染和视频嵌入）。视频动效额外需要带 `libx264` 的 FFmpeg；bootstrap 会检查它并在缺失时给出配置提示。各组成部分的上游来源与许可证说明保留在对应技能文件中。
