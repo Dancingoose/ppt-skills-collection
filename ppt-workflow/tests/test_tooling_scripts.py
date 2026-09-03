@@ -20,7 +20,7 @@ def run_script(script, *arguments):
     executable = powershell_executable()
     if executable is None:
         raise unittest.SkipTest("PowerShell is required for tooling script tests")
-    return subprocess.run(
+    result = subprocess.run(
         [
             executable,
             "-NoProfile",
@@ -32,11 +32,12 @@ def run_script(script, *arguments):
         ],
         cwd=ROOT,
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        text=False,
         check=False,
     )
+    result.stdout = result.stdout.decode("utf-8-sig", errors="replace")
+    result.stderr = result.stderr.decode("utf-8-sig", errors="replace")
+    return result
 
 
 class ToolingScriptTests(unittest.TestCase):

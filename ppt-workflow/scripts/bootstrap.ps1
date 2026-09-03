@@ -98,7 +98,8 @@ try {
     if ($missing.Count -gt 0) {
         $uniqueMissing = @($missing | Select-Object -Unique)
         Write-Output ("Missing Python packages: {0}" -f ($uniqueMissing -join ', '))
-        Write-Output ("Install them with: {0} -m pip install -r ppt-workflow/requirements.txt -r html-to-pptx/requirements.txt" -f $pythonPath)
+        $quotedPython = '"' + $pythonPath + '"'
+        Write-Output ("Install them with: {0} -m pip install -r ppt-workflow/requirements.txt -r html-to-pptx/requirements.txt" -f $quotedPython)
         exit 1
     }
 
