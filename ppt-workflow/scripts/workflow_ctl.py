@@ -68,6 +68,8 @@ def _refresh(task: Path, state: dict) -> None:
 
 def _event(task: Path, state: dict, command: str, result: str, from_layer: str, to_layer: str, gate: GateResult | None = None) -> None:
     control = state.setdefault("control", {})
+    control["artifactHashes"] = artifact_hashes(task, state)
+    control["stateSha256"] = state_digest(state)
     record = {
         "eventId": str(uuid.uuid4()),
         "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -75,7 +77,7 @@ def _event(task: Path, state: dict, command: str, result: str, from_layer: str, 
         "fromLayer": from_layer,
         "toLayer": to_layer,
         "result": result,
-        "stateSha256": state_digest(state),
+        "stateSha256": control["stateSha256"],
         "artifactHashes": control.get("artifactHashes", {}),
         "gateSummary": {"pass": gate.passes, "fail": gate.failures} if gate else {"pass": 0, "fail": 0},
     }

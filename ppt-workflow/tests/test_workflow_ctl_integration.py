@@ -22,6 +22,7 @@ class WorkflowCtlIntegrationTests(unittest.TestCase):
             self.assertEqual(len(events), 3)
             state = json.loads((task / "workflow-state.json").read_text(encoding="utf-8"))
             self.assertEqual(state["control"]["currentLayer"], "intent")
+            self.assertEqual(state["control"]["stateSha256"], workflow_ctl.state_digest(state))
             (task / "changed.txt").write_text("drift", encoding="utf-8")
             self.assertEqual(workflow_ctl.main(["status", "--task", str(task)]), 1)
             self.assertEqual(workflow_ctl.main(["advance", "--task", str(task), "--to", "design"]), 1)
