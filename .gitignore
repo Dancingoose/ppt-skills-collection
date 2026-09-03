@@ -4,3 +4,4 @@ __pycache__/
 html-to-pptx/.config.local.toml
 html-to-pptx/.config.local.toml.*
 outputs/
+.worktrees/
