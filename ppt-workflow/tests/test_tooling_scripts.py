@@ -1,0 +1,74 @@
+import os
+import shutil
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+BOOTSTRAP = ROOT / "ppt-workflow" / "scripts" / "bootstrap.ps1"
+RUN_TESTS = ROOT / "scripts" / "run-tests.ps1"
+WORKFLOW = ROOT / ".github" / "workflows" / "quality.yml"
+
+
+def powershell_executable():
+    return shutil.which("pwsh") or shutil.which("powershell")
+
+
+def run_script(script, *arguments):
+    executable = powershell_executable()
+    if executable is None:
+        raise unittest.SkipTest("PowerShell is required for tooling script tests")
+    return subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            *map(str, arguments),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+class ToolingScriptTests(unittest.TestCase):
+    def test_bootstrap_reports_missing_distribution_and_install_command(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fake_python = Path(temp_dir) / "missing-python.cmd"
+            fake_python.write_text("@echo off\r\nexit /b 1\r\n", encoding="ascii")
+            result = run_script(BOOTSTRAP, "-Python", fake_python)
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pypdf", output)
+        self.assertIn("-m pip install -r ppt-workflow/requirements.txt -r html-to-pptx/requirements.txt", output)
+
+    def test_run_tests_fails_before_discovery_when_dependency_is_missing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fake_python = Path(temp_dir) / "missing-python.cmd"
+            fake_python.write_text("@echo off\r\nexit /b 1\r\n", encoding="ascii")
+            result = run_script(RUN_TESTS, "-Python", fake_python)
+
+        output = result.stdout + result.stderr
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pypdf", output)
+        self.assertIn("tests were not started", output)
+
+    def test_quality_workflow_uses_windows_python_and_shared_scripts(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("runs-on: windows-latest", workflow)
+        self.assertIn("python-version: ['3.12']", workflow)
+        self.assertIn("ppt-workflow\\scripts\\bootstrap.ps1 -Install", workflow)
+        self.assertIn(".\\scripts\\run-tests.ps1", workflow)
+
+
+if __name__ == "__main__":
+    unittest.main()
