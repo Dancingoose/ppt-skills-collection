@@ -24,6 +24,7 @@ class WorkflowCtlIntegrationTests(unittest.TestCase):
             self.assertEqual(state["control"]["currentLayer"], "intent")
             (task / "changed.txt").write_text("drift", encoding="utf-8")
             self.assertEqual(workflow_ctl.main(["status", "--task", str(task)]), 1)
+            self.assertEqual(workflow_ctl.main(["advance", "--task", str(task), "--to", "design"]), 1)
 
 
 if __name__ == "__main__":

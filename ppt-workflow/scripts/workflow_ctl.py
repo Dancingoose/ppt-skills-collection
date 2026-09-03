@@ -155,6 +155,9 @@ def cmd_advance(args: argparse.Namespace) -> int:
     control = state.setdefault("control", {})
     current = control.get("currentLayer", "prep")
     target = args.to
+    if control_status(task, state) == "drifted" or ("artifactHashes" in control and control["artifactHashes"] != artifact_hashes(task, state)):
+        print("cannot advance a drifted task; verify or reinitialize after restoring files", file=sys.stderr)
+        return 1
     if not next_layer(current, target):
         print(f"invalid transition: {current} -> {target}", file=sys.stderr)
         return 2
@@ -179,6 +182,9 @@ def cmd_seal(args: argparse.Namespace) -> int:
     task = _task(args.task)
     state, state_path = _load(task)
     control = state.setdefault("control", {})
+    if control_status(task, state) == "drifted" or ("artifactHashes" in control and control["artifactHashes"] != artifact_hashes(task, state)):
+        print("cannot seal a drifted task", file=sys.stderr)
+        return 1
     if control.get("currentLayer") != "deliver":
         print("seal requires currentLayer=deliver", file=sys.stderr)
         return 2
