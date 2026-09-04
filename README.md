@@ -23,7 +23,7 @@
 .\ppt-workflow\scripts\bootstrap.ps1 -Install
 ```
 
-该命令会安装两个子项目的 Python 依赖、Playwright Chromium，并检查 PDF/PowerPoint 渲染依赖。需要视频动效或视频嵌入时，Windows 还需安装带 `libx264` 的 FFmpeg；可使用 `winget install --id Gyan.FFmpeg.Essentials --exact`，或设置 `PPT_FFMPEG_EXECUTABLE` 指向已有的 `ffmpeg.exe`。
+该命令会安装两个子项目的 Python 依赖和 Playwright Chromium，并检查 Python 导入及可选的 FFmpeg 配置。它不安装或探测 PowerPoint、LibreOffice、Poppler；视觉审计需 Windows PowerPoint，或 LibreOffice 加 Poppler。需要视频动效或视频嵌入时，Windows 还需安装带 `libx264` 的 FFmpeg；可使用 `winget install --id Gyan.FFmpeg.Essentials --exact`，或设置 `PPT_FFMPEG_EXECUTABLE` 指向已有的 `ffmpeg.exe`。
 
 只初始化 HTML 转换器运行时时，也可运行：
 
@@ -63,6 +63,12 @@ python .\ppt-workflow\scripts\check_workflow_state.py --layer exec --task <task-
 python .\ppt-workflow\scripts\check_workflow_state.py --layer deliver --task <task-dir>
 ```
 
+完成最终 HTML 和执行清单后，在执行门禁前同步增量演示协议；之后任一 HTML 或清单变更都需要重新同步：
+
+```powershell
+python .\ppt-workflow\scripts\presentation_protocol.py sync --task <task-dir>
+```
+
 模板保真嵌入还需要执行：
 
 ```powershell
@@ -73,4 +79,4 @@ python .\ppt-workflow\scripts\template_embedding.py verify --template <template.
 
 ## 依赖与来源
 
-运行时需要 Python 3.10+、Playwright Chromium、PPTX/PDF 处理依赖，以及 Windows PowerPoint（用于 COM 渲染和视频嵌入）。视频动效额外需要带 `libx264` 的 FFmpeg；bootstrap 会检查它并在缺失时给出配置提示。各组成部分的上游来源与许可证说明保留在对应技能文件中。
+运行时需要 Python 3.10+、Playwright Chromium、PPTX/PDF 处理依赖，以及 Windows PowerPoint（用于 COM 渲染和视频嵌入）。LibreOffice 加 Poppler 可作为跨平台视觉审计渲染器。视频动效额外需要带 `libx264` 的 FFmpeg；bootstrap 会验证其可执行性和编码器支持，并在缺失时给出配置提示。各组成部分的上游来源与许可证说明保留在对应技能文件中。

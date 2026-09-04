@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,10 +17,13 @@ def powershell_executable():
     return shutil.which("pwsh") or shutil.which("powershell")
 
 
-def run_script(script, *arguments):
+def run_script(script, *arguments, environment=None):
     executable = powershell_executable()
     if executable is None:
         raise unittest.SkipTest("PowerShell is required for tooling script tests")
+    child_environment = os.environ.copy()
+    if environment:
+        child_environment.update(environment)
     result = subprocess.run(
         [
             executable,
@@ -32,6 +36,7 @@ def run_script(script, *arguments):
         ],
         cwd=ROOT,
         capture_output=True,
+        env=child_environment,
         text=False,
         check=False,
     )
@@ -76,6 +81,21 @@ class ToolingScriptTests(unittest.TestCase):
         self.assertIn("win32com.client", bootstrap)
         self.assertIn("PPT_FFMPEG_EXECUTABLE", bootstrap)
         self.assertIn("playwright install chromium", bootstrap)
+
+    def test_bootstrap_rejects_an_invalid_configured_ffmpeg_path(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing_ffmpeg = Path(temp_dir) / "missing-ffmpeg.exe"
+            result = run_script(
+                BOOTSTRAP,
+                "-Python",
+                sys.executable,
+                environment={"PPT_FFMPEG_EXECUTABLE": str(missing_ffmpeg)},
+            )
+
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 0, output)
+        self.assertIn("PPT_FFMPEG_EXECUTABLE does not point to a file", output)
+        self.assertNotIn(f"[PASS] ffmpeg with libx264 ({missing_ffmpeg}", output)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,8 @@ import re
 import sys
 from pathlib import Path
 
+from presentation_protocol import declared_protocol_errors
+
 DATA_LAYOUTS = {"A3", "B2", "B6", "B7", "B18", "B20", "B21", "B22"}
 CARD_GRID_LAYOUTS = {"B4", "B16", "B19", "C8"}
 LAYOUT_RE = re.compile(r"^[ABC](?:[1-9]|1[0-9]|2[0-2])$")
@@ -1087,6 +1089,16 @@ def check_execution(state, task_dir, v):
             state.get("decision", {}).get("designProfile", {}).get("selectedProfileId"), v,
         )
         check_v3_intent_continuity_review(state, task_dir, html_path, slides, seen_ids, v)
+    if "protocol" not in execution:
+        v.require(True, "execution presentation protocol is not declared; legacy protocol mode")
+    else:
+        protocol_failures = declared_protocol_errors(task_dir, state)
+        v.require(
+            not protocol_failures,
+            "execution presentation protocol matches current state and HTML"
+            if not protocol_failures
+            else "; ".join(protocol_failures),
+        )
     review = execution.get("independentReview", {})
     v.require(review.get("result") in {"pass", "revised"}, "independent execution review has a result")
     v.value(review, "notes", "independent execution review has notes")

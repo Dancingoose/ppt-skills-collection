@@ -71,6 +71,41 @@ function Test-PythonImport {
     return $exitCode -eq 0
 }
 
+function Resolve-FFmpeg {
+    $configured = $env:PPT_FFMPEG_EXECUTABLE
+    if (-not [string]::IsNullOrWhiteSpace($configured)) {
+        if (Test-Path -LiteralPath $configured -PathType Leaf) {
+            return (Resolve-Path -LiteralPath $configured).Path
+        }
+        Write-Warning "PPT_FFMPEG_EXECUTABLE does not point to a file: $configured. Falling back to PATH."
+    }
+
+    $command = Get-Command ffmpeg -ErrorAction SilentlyContinue
+    if ($null -ne $command) {
+        return $command.Source
+    }
+    return $null
+}
+
+function Test-FFmpegWithLibx264 {
+    param([string]$Executable)
+
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & $Executable -version *> $null
+        if ($LASTEXITCODE -ne 0) {
+            return $false
+        }
+        $encoders = & $Executable -hide_banner -encoders 2>$null
+        return $LASTEXITCODE -eq 0 -and $encoders -match '\blibx264\b'
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+}
+
 try {
     $pythonPath = Resolve-Python -Requested $Python
     Write-Host "Python: $pythonPath"
@@ -116,16 +151,13 @@ try {
         exit 1
     }
 
-    $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue
-    if ($null -eq $ffmpeg -and [string]::IsNullOrWhiteSpace($env:PPT_FFMPEG_EXECUTABLE)) {
+    $ffmpegPath = Resolve-FFmpeg
+    if ($null -eq $ffmpegPath) {
         Write-Warning 'FFmpeg not found. Video-motion integration tests and native video embedding will be skipped; install FFmpeg or set PPT_FFMPEG_EXECUTABLE.'
+    } elseif (Test-FFmpegWithLibx264 -Executable $ffmpegPath) {
+        Write-Host "[PASS] ffmpeg with libx264 ($ffmpegPath)"
     } else {
-        $ffmpegPath = if (-not [string]::IsNullOrWhiteSpace($env:PPT_FFMPEG_EXECUTABLE)) {
-            $env:PPT_FFMPEG_EXECUTABLE
-        } else {
-            $ffmpeg.Source
-        }
-        Write-Host "[PASS] ffmpeg ($ffmpegPath)"
+        Write-Warning "FFmpeg is unavailable or lacks libx264: $ffmpegPath. Video-motion integration tests and native video embedding will be skipped."
     }
 
     Write-Host 'All required Python imports are available.'

@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "check_workflow_state.py"
+SCRIPTS = SCRIPT.parent
+sys.path.insert(0, str(SCRIPTS))
+
+from presentation_protocol import sha256_file, sync_protocol
 
 
 def valid_intent_questionnaire():
@@ -521,6 +525,41 @@ class WorkflowStateTests(unittest.TestCase):
         for layer in ("prep", "intent", "decision", "exec"):
             result = self.check(task, layer)
             self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_execution_accepts_a_synchronized_presentation_protocol(self):
+        task = self.write_task(valid_v3_state())
+        sync_protocol(task)
+
+        result = self.check(task, "exec")
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("execution presentation protocol matches current state and HTML", result.stdout)
+
+    def test_execution_rejects_presentation_protocol_html_drift(self):
+        task = self.write_task(valid_v3_state())
+        sync_protocol(task)
+        (task / "design.html").write_text(V3_HTML + "<!-- changed after protocol sync -->", encoding="utf-8")
+
+        result = self.check(task, "exec")
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("protocol source does not match the current execution HTML", result.stdout)
+
+    def test_execution_rejects_tampered_presentation_protocol(self):
+        task = self.write_task(valid_v3_state())
+        protocol_path = sync_protocol(task)
+        protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
+        protocol["deck"]["deliveryFormat"] = "pdf"
+        protocol_path.write_text(json.dumps(protocol), encoding="utf-8")
+        state_path = task / "workflow-state.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["execution"]["protocol"]["sha256"] = sha256_file(protocol_path)
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+
+        result = self.check(task, "exec")
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("protocol deck does not match the current workflow decision", result.stdout)
 
     def test_intent_gate_rejects_a_missing_questionnaire(self):
         state = valid_state()

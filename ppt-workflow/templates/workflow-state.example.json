@@ -423,6 +423,11 @@
   },
   "execution": {
     "html": "design.html",
+    "protocol": {
+      "schemaVersion": 1,
+      "artifact": "presentation-protocol.json",
+      "sha256": ""
+    },
     "lockedPassport": {
       "theme": "观点叙事",
       "accent": "#0057B8",
